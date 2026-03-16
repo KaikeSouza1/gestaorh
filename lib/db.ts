@@ -1,11 +1,9 @@
 import { Pool } from "pg";
 
+// OPÇÃO NUCLEAR: URL chumbada direto no código.
+// (O %40 é o seu '@' da senha para a URL não bugar)
 const pool = new Pool({
-  user: process.env.DB_USER,
-  password: process.env.DB_PASSWORD,
-  host: process.env.DB_HOST,
-  port: Number(process.env.DB_PORT),
-  database: process.env.DB_NAME,
+  connectionString: "postgresql://pedroso:ped%40246618@177.73.253.55:19844/dev_denuncias",
   ssl: false 
 });
 
