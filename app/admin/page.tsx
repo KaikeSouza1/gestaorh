@@ -311,7 +311,7 @@ export default function PainelMaster() {
               />
             </div>
 
-            {/* BOTÕES DE AÇÃO DO QR CODE */}
+            {/* BOTÕES DE AÇÃO DO QR CODE22 */}
             <div className="flex flex-col gap-3 pt-4">
               <div className="flex gap-3">
                 <button onClick={imprimirQRCode} className="flex-1 py-4 bg-slate-900 hover:bg-slate-800 text-white rounded-2xl font-black uppercase text-[10px] tracking-widest flex items-center justify-center gap-2 transition-all shadow-lg shadow-slate-900/20">
