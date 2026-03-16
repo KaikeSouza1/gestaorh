@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { ShieldCheck, Lock, User, Building, ArrowRight, Loader2 } from "lucide-react";
+import { ShieldCheck, Lock, User, Building, ArrowRight, Loader2, KeyRound } from "lucide-react";
 
 export default function TelaAcesso() {
   const [isLogin, setIsLogin] = useState(true);
@@ -11,19 +11,14 @@ export default function TelaAcesso() {
   const [erro, setErro] = useState("");
   const [loading, setLoading] = useState(false);
 
-  // === A MÁGICA DO QR CODE COMEÇA AQUI ===
   useEffect(() => {
-    // Lê a URL do navegador
     const urlParams = new URLSearchParams(window.location.search);
     const cnpjUrl = urlParams.get('cnpj');
-    
-    // Se encontrou um CNPJ na URL (veio do QR code)
     if (cnpjUrl) {
-      setCnpj(cnpjUrl); // Preenche o campo CNPJ sozinho
-      setIsLogin(false); // Já abre na aba de "Cadastrar" em vez de "Login"
+      setCnpj(cnpjUrl);
+      setIsLogin(false);
     }
   }, []);
-  // === FIM DA MÁGICA ===
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -61,7 +56,17 @@ export default function TelaAcesso() {
   return (
     <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4 font-sans selection:bg-emerald-200">
       <div className="max-w-md w-full bg-white rounded-[2.5rem] shadow-2xl overflow-hidden border border-slate-100">
-        <div className="bg-slate-900 p-10 text-center">
+        <div className="bg-slate-900 p-10 text-center relative">
+          
+          {/* BOTÃO ESCONDIDO (SÓ APARECE EM DESKTOP) */}
+          <button 
+            onClick={() => window.location.href = "/rh/login"}
+            title="Acesso Administrativo"
+            className="hidden md:flex absolute top-5 right-5 items-center gap-1.5 p-2 rounded-lg text-slate-700 hover:text-emerald-400 hover:bg-slate-800/50 transition-all text-[10px] font-black uppercase tracking-widest cursor-pointer"
+          >
+            <KeyRound className="w-3.5 h-3.5" /> Acesso Gestor
+          </button>
+          
           <div className="inline-flex items-center justify-center p-4 bg-emerald-500 rounded-3xl shadow-lg shadow-emerald-500/20 mb-4">
             <ShieldCheck className="w-10 h-10 text-white" />
           </div>
@@ -90,7 +95,7 @@ export default function TelaAcesso() {
                     type="text"
                     value={cnpj}
                     onChange={(e) => setCnpj(e.target.value)}
-                    className="w-full pl-12 pr-4 py-4 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 transition-all outline-none font-bold text-slate-700"
+                    className="w-full pl-12 pr-4 py-4 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 transition-all outline-none font-bold text-slate-700 placeholder:text-slate-300"
                     placeholder="00.000.000/0000-00"
                     required={!isLogin}
                   />
@@ -106,7 +111,7 @@ export default function TelaAcesso() {
                   type="text"
                   value={cpf}
                   onChange={(e) => setCpf(e.target.value)}
-                  className="w-full pl-12 pr-4 py-4 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 transition-all outline-none font-bold text-slate-700"
+                  className="w-full pl-12 pr-4 py-4 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 transition-all outline-none font-bold text-slate-700 placeholder:text-slate-300"
                   placeholder="000.000.000-00"
                   required
                 />
@@ -121,7 +126,7 @@ export default function TelaAcesso() {
                   type="password"
                   value={senha}
                   onChange={(e) => setSenha(e.target.value)}
-                  className="w-full pl-12 pr-4 py-4 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 transition-all outline-none font-bold text-slate-700"
+                  className="w-full pl-12 pr-4 py-4 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 transition-all outline-none font-bold text-slate-700 placeholder:text-slate-300"
                   placeholder="••••••••"
                   required
                 />
