@@ -15,14 +15,58 @@ export default function TelaAcesso() {
     const urlParams = new URLSearchParams(window.location.search);
     const cnpjUrl = urlParams.get('cnpj');
     if (cnpjUrl) {
-      setCnpj(cnpjUrl);
+      // Já aplica a máscara no CNPJ vindo da URL, se necessário
+      handleCnpjChange({ target: { value: cnpjUrl } } as any);
       setIsLogin(false);
     }
   }, []);
 
+  // --- MÁSCARAS AUTOMÁTICAS ---
+  const handleCpfChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    let value = e.target.value.replace(/\D/g, ""); // Remove tudo que não for número
+    if (value.length > 11) value = value.slice(0, 11); // Limita a 11 números
+    
+    // Aplica a máscara: 000.000.000-00
+    value = value.replace(/(\d{3})(\d)/, "$1.$2");
+    value = value.replace(/(\d{3})(\d)/, "$1.$2");
+    value = value.replace(/(\d{3})(\d{1,2})$/, "$1-$2");
+    
+    setCpf(value);
+  };
+
+  const handleCnpjChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    let value = e.target.value.replace(/\D/g, ""); 
+    if (value.length > 14) value = value.slice(0, 14);
+    
+    // Aplica a máscara: 00.000.000/0000-00
+    value = value.replace(/^(\d{2})(\d)/, "$1.$2");
+    value = value.replace(/^(\d{2})\.(\d{3})(\d)/, "$1.$2.$3");
+    value = value.replace(/\.(\d{3})(\d)/, ".$1/$2");
+    value = value.replace(/(\d{4})(\d)/, "$1-$2");
+    
+    setCnpj(value);
+  };
+
+  // --- VALIDAÇÃO E ENVIO ---
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErro("");
+
+    // 1. Limpa os dados para validação (pega só os números)
+    const cpfLimpo = cpf.replace(/\D/g, "");
+    const cnpjLimpo = cnpj.replace(/\D/g, "");
+
+    // 2. Regras de Validação Front-end
+    if (cpfLimpo.length !== 11) {
+      return setErro("CPF inválido. Digite os 11 números completos.");
+    }
+    if (!isLogin && cnpjLimpo.length !== 14) {
+      return setErro("CNPJ inválido. Verifique o número da empresa.");
+    }
+    if (senha.length < 6) {
+      return setErro("A senha deve ter pelo menos 6 caracteres.");
+    }
+
     setLoading(true);
 
     try {
@@ -31,9 +75,9 @@ export default function TelaAcesso() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           acao: isLogin ? "login" : "registrar",
-          cpf,
+          cpf: cpfLimpo, // Envia limpo para o banco
           senha,
-          cnpj: isLogin ? undefined : cnpj,
+          cnpj: isLogin ? undefined : cnpjLimpo, // Envia limpo para o banco
         }),
       });
 
@@ -55,18 +99,18 @@ export default function TelaAcesso() {
 
   return (
     <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4 font-sans selection:bg-emerald-200">
-      <div className="max-w-md w-full bg-white rounded-[2.5rem] shadow-2xl overflow-hidden border border-slate-100">
+      <div className="max-w-md w-full bg-white rounded-[2.5rem] shadow-2xl overflow-hidden border border-slate-100 relative">
+        
+        {/* BOTÃO ESCONDIDO DO GESTOR */}
+        <button 
+          onClick={() => window.location.href = "/rh/login"}
+          title="Acesso Administrativo"
+          className="hidden md:flex absolute top-5 right-5 items-center gap-1.5 p-2 rounded-lg text-slate-700 hover:text-emerald-400 hover:bg-slate-800/50 transition-all text-[10px] font-black uppercase tracking-widest cursor-pointer z-10"
+        >
+          <KeyRound className="w-3.5 h-3.5" /> Acesso Gestor
+        </button>
+
         <div className="bg-slate-900 p-10 text-center relative">
-          
-          {/* BOTÃO ESCONDIDO (SÓ APARECE EM DESKTOP) */}
-          <button 
-            onClick={() => window.location.href = "/rh/login"}
-            title="Acesso Administrativo"
-            className="hidden md:flex absolute top-5 right-5 items-center gap-1.5 p-2 rounded-lg text-slate-700 hover:text-emerald-400 hover:bg-slate-800/50 transition-all text-[10px] font-black uppercase tracking-widest cursor-pointer"
-          >
-            <KeyRound className="w-3.5 h-3.5" /> Acesso Gestor
-          </button>
-          
           <div className="inline-flex items-center justify-center p-4 bg-emerald-500 rounded-3xl shadow-lg shadow-emerald-500/20 mb-4">
             <ShieldCheck className="w-10 h-10 text-white" />
           </div>
@@ -80,7 +124,7 @@ export default function TelaAcesso() {
           </h2>
 
           {erro && (
-            <div className="mb-6 p-4 bg-rose-50 border border-rose-100 text-rose-600 text-xs rounded-2xl text-center font-bold uppercase">
+            <div className="mb-6 p-4 bg-rose-50 border border-rose-100 text-rose-600 text-xs rounded-2xl text-center font-bold uppercase animate-in fade-in">
               {erro}
             </div>
           )}
@@ -94,7 +138,7 @@ export default function TelaAcesso() {
                   <input
                     type="text"
                     value={cnpj}
-                    onChange={(e) => setCnpj(e.target.value)}
+                    onChange={handleCnpjChange}
                     className="w-full pl-12 pr-4 py-4 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 transition-all outline-none font-bold text-slate-700 placeholder:text-slate-300"
                     placeholder="00.000.000/0000-00"
                     required={!isLogin}
@@ -110,7 +154,7 @@ export default function TelaAcesso() {
                 <input
                   type="text"
                   value={cpf}
-                  onChange={(e) => setCpf(e.target.value)}
+                  onChange={handleCpfChange}
                   className="w-full pl-12 pr-4 py-4 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 transition-all outline-none font-bold text-slate-700 placeholder:text-slate-300"
                   placeholder="000.000.000-00"
                   required
