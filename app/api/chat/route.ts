@@ -1,7 +1,9 @@
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
 import { NextResponse } from "next/server";
 import pool from "@/lib/db";
 
-// BUSCAR AS MENSAGENS DE UM PROTOCOLO
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
@@ -11,13 +13,17 @@ export async function GET(request: Request) {
       "SELECT * FROM mensagem_denuncia WHERE denuncia_id = $1 ORDER BY criado_em ASC", 
       [denuncia_id]
     );
-    return NextResponse.json(res.rows);
+    
+    return NextResponse.json(res.rows, {
+      headers: {
+        "Cache-Control": "no-store, max-age=0",
+      },
+    });
   } catch (error) {
     return NextResponse.json({ erro: "Erro ao buscar chat." }, { status: 500 });
   }
 }
 
-// ENVIAR UMA NOVA MENSAGEM
 export async function POST(request: Request) {
   try {
     const { denuncia_id, remetente, texto } = await request.json();

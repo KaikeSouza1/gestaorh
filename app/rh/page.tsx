@@ -18,17 +18,11 @@ export default function PainelRH() {
   const [novaMensagem, setNovaMensagem] = useState("");
   const [loadingChat, setLoadingChat] = useState(false);
   
-  // Referência para rolar o chat para o final automaticamente
   const chatEndRef = useRef<HTMLDivElement>(null);
 
   const carregarDados = async () => {
     const empId = localStorage.getItem("empresa_id");
-    const query = new URLSearchParams({ 
-      empresa_id: empId || "", 
-      ...filtros, 
-      arquivados: filtros.arquivados.toString() 
-    }).toString();
-
+    const query = new URLSearchParams({ empresa_id: empId || "", ...filtros, arquivados: filtros.arquivados.toString() }).toString();
     try {
       const res = await fetch(`/api/rh/denuncias?${query}`);
       const data = await res.json();
@@ -38,38 +32,31 @@ export default function PainelRH() {
 
   useEffect(() => { carregarDados(); }, [filtros]);
 
-  // --- O MOTOR DO TEMPO REAL (POLLING) ---
+  // --- MOTOR DO TEMPO REAL BLINDADO CONTRA CACHE ---
   useEffect(() => {
     let intervalo: any;
     if (denunciaSelecionada) {
       intervalo = setInterval(async () => {
         try {
-          const res = await fetch(`/api/chat?denuncia_id=${denunciaSelecionada.id}`);
+          const res = await fetch(`/api/chat?denuncia_id=${denunciaSelecionada.id}&t=${Date.now()}`, { cache: "no-store" });
           const data = await res.json();
           setMensagens(Array.isArray(data) ? data : []);
         } catch (e) {}
-      }, 3000); // Atualiza a cada 3 segundos silenciosamente
+      }, 3000);
     }
     return () => clearInterval(intervalo);
   }, [denunciaSelecionada]);
 
-  // --- AUTO SCROLL PARA A ÚLTIMA MENSAGEM ---
-  useEffect(() => {
-    chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [mensagens]);
+  useEffect(() => { chatEndRef.current?.scrollIntoView({ behavior: "smooth" }); }, [mensagens]);
 
   const abrirDenuncia = async (item: any) => {
     setDenunciaSelecionada(item);
     setLoadingChat(true);
     try {
-      const res = await fetch(`/api/chat?denuncia_id=${item.id}`);
+      const res = await fetch(`/api/chat?denuncia_id=${item.id}&t=${Date.now()}`, { cache: "no-store" });
       const data = await res.json();
       setMensagens(Array.isArray(data) ? data : []);
-    } catch (e) {
-      setMensagens([]);
-    } finally {
-      setLoadingChat(false);
-    }
+    } catch (e) { setMensagens([]); } finally { setLoadingChat(false); }
   };
 
   const enviarMensagemRH = async () => {
@@ -82,13 +69,10 @@ export default function PainelRH() {
       });
       setNovaMensagem("");
       
-      // Busca instantaneamente após enviar para não esperar os 3 seg do polling
-      const res = await fetch(`/api/chat?denuncia_id=${denunciaSelecionada.id}`);
+      const res = await fetch(`/api/chat?denuncia_id=${denunciaSelecionada.id}&t=${Date.now()}`, { cache: "no-store" });
       const data = await res.json();
       setMensagens(Array.isArray(data) ? data : []);
-    } catch (error) {
-      alert("Erro ao enviar mensagem.");
-    }
+    } catch (error) { alert("Erro ao enviar mensagem."); }
   };
 
   const salvarAlteracoes = async (campos: any, fecharAposSalvar = false) => {
@@ -112,22 +96,17 @@ export default function PainelRH() {
   return (
     <div className="min-h-screen bg-slate-50 flex font-sans selection:bg-emerald-100 text-slate-900">
       
-      {/* Sidebar Light & Clean */}
       <aside className="w-72 bg-white flex flex-col border-r border-slate-200 sticky top-0 h-screen z-20">
         <div className="p-8">
           <div className="flex items-center gap-3 mb-10">
-            <div className="p-2 bg-emerald-600 rounded-xl shadow-lg shadow-emerald-600/20">
-              <Shield className="w-6 h-6 text-white" />
-            </div>
+            <div className="p-2 bg-emerald-600 rounded-xl shadow-lg shadow-emerald-600/20"><Shield className="w-6 h-6 text-white" /></div>
             <h1 className="font-black text-lg tracking-tighter text-slate-800 uppercase">Canal Seguro</h1>
           </div>
-          
           <nav className="space-y-2">
             <SidebarLink icon={<Inbox className="w-4 h-4" />} label="Denúncias" active={!filtros.arquivados} onClick={() => setFiltros({...filtros, arquivados: false})} />
             <SidebarLink icon={<Archive className="w-4 h-4" />} label="Arquivados" active={filtros.arquivados} onClick={() => setFiltros({...filtros, arquivados: true})} />
           </nav>
         </div>
-
         <div className="mt-auto p-6">
           <div className="bg-slate-100 p-4 rounded-2xl mb-4 border border-slate-200">
             <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Empresa Logada</p>
@@ -141,7 +120,6 @@ export default function PainelRH() {
 
       <main className="flex-1 p-10 overflow-y-auto">
         <div className="max-w-6xl mx-auto space-y-10">
-          
           <div className="flex justify-between items-center">
             <div>
               <h2 className="text-4xl font-black text-slate-800 tracking-tighter uppercase">Gestão RH</h2>
@@ -149,12 +127,7 @@ export default function PainelRH() {
             </div>
             <div className="relative group">
               <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-300 group-focus-within:text-emerald-500 transition-colors" />
-              <input 
-                type="text" 
-                placeholder="BUSCAR PROTOCOLO..." 
-                className="pl-11 pr-6 py-4 bg-white border border-slate-200 rounded-2xl text-xs focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 outline-none w-72 font-bold transition-all shadow-sm uppercase placeholder:text-slate-300"
-                onChange={(e) => setFiltros({...filtros, busca: e.target.value})}
-              />
+              <input type="text" placeholder="BUSCAR PROTOCOLO..." className="pl-11 pr-6 py-4 bg-white border border-slate-200 rounded-2xl text-xs focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 outline-none w-72 font-bold transition-all shadow-sm uppercase placeholder:text-slate-300" onChange={(e) => setFiltros({...filtros, busca: e.target.value})} />
             </div>
           </div>
 
@@ -187,9 +160,7 @@ export default function PainelRH() {
                     <td className="px-10 py-8 text-center"><PriorityBadge level={item.prioridade} /></td>
                     <td className="px-10 py-8"><StatusBadge status={item.status} /></td>
                     <td className="px-10 py-8 text-right pr-14">
-                      <div className="inline-flex p-3 bg-white border border-slate-200 text-slate-400 rounded-xl group-hover:bg-emerald-600 group-hover:text-white group-hover:border-emerald-600 transition-all shadow-sm">
-                        <MessageSquare className="w-5 h-5" />
-                      </div>
+                      <div className="inline-flex p-3 bg-white border border-slate-200 text-slate-400 rounded-xl group-hover:bg-emerald-600 group-hover:text-white group-hover:border-emerald-600 transition-all shadow-sm"><MessageSquare className="w-5 h-5" /></div>
                     </td>
                   </tr>
                 ))}
@@ -199,21 +170,17 @@ export default function PainelRH() {
         </div>
       </main>
 
-      {/* MODAL DE ANÁLISE RESTAURADO (COM TODOS OS BOTÕES E CHAT EM TEMPO REAL) */}
+      {/* MODAL DE ANÁLISE RESTAURADO E BLINDADO CONTRA CACHE */}
       {denunciaSelecionada && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md z-50 flex justify-end animate-in fade-in duration-300">
           <div className="bg-slate-50 w-full max-w-2xl h-full shadow-2xl flex flex-col animate-in slide-in-from-right duration-500 border-l border-slate-200">
-            
             <div className="bg-white p-6 sm:p-8 border-b border-slate-200 flex justify-between items-center shrink-0">
               <div className="flex items-center gap-4">
                 <div className="bg-emerald-600 p-4 rounded-xl shadow-lg shadow-emerald-600/20 text-white"><UserSearch className="w-6 h-6" /></div>
                 <div>
                   <h3 className="text-3xl font-black text-slate-800 uppercase tracking-tighter">{denunciaSelecionada.protocolo}</h3>
                   <p className="text-[10px] font-black text-emerald-600 uppercase tracking-widest italic flex items-center gap-1">
-                    <span className="relative flex h-2 w-2">
-                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                      <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
-                    </span>
+                    <span className="relative flex h-2 w-2"><span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span><span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span></span>
                     Sincronização Ativa
                   </p>
                 </div>
@@ -221,15 +188,10 @@ export default function PainelRH() {
               <button onClick={() => setDenunciaSelecionada(null)} className="p-3 bg-slate-100 hover:bg-rose-50 hover:text-rose-600 rounded-2xl transition-all text-slate-400"><X className="w-6 h-6"/></button>
             </div>
 
-            {/* RESTAUREI TODOS OS CAMPOS DE GESTÃO AQUI */}
             <div className="bg-white px-8 py-6 border-b border-slate-200 shrink-0 grid grid-cols-2 gap-6 shadow-sm z-10">
                <div className="space-y-1">
                   <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Status do Caso</label>
-                  <select 
-                    value={denunciaSelecionada.status}
-                    onChange={(e) => salvarAlteracoes({ status: e.target.value })}
-                    className="w-full p-3 bg-slate-50 border-2 border-slate-100 rounded-xl font-black text-slate-800 outline-none focus:border-emerald-500 transition-all appearance-none cursor-pointer text-xs uppercase tracking-wider"
-                  >
+                  <select value={denunciaSelecionada.status} onChange={(e) => salvarAlteracoes({ status: e.target.value })} className="w-full p-3 bg-slate-50 border-2 border-slate-100 rounded-xl font-black text-slate-800 outline-none focus:border-emerald-500 transition-all appearance-none cursor-pointer text-xs uppercase tracking-wider">
                     <option value="PENDENTE">Aguardando (Pendente)</option>
                     <option value="EM_ANALISE">Em Análise Ativa</option>
                     <option value="RESOLVIDO">Concluído / Resolvido</option>
@@ -237,22 +199,14 @@ export default function PainelRH() {
                 </div>
                 <div className="space-y-1">
                   <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Nível de Prioridade</label>
-                  <select 
-                    value={denunciaSelecionada.prioridade}
-                    onChange={(e) => salvarAlteracoes({ prioridade: e.target.value })}
-                    className="w-full p-3 bg-slate-50 border-2 border-slate-100 rounded-xl font-black text-slate-800 outline-none focus:border-emerald-500 transition-all appearance-none cursor-pointer text-xs uppercase tracking-wider"
-                  >
+                  <select value={denunciaSelecionada.prioridade} onChange={(e) => salvarAlteracoes({ prioridade: e.target.value })} className="w-full p-3 bg-slate-50 border-2 border-slate-100 rounded-xl font-black text-slate-800 outline-none focus:border-emerald-500 transition-all appearance-none cursor-pointer text-xs uppercase tracking-wider">
                     <option value="BAIXA">Baixa</option>
                     <option value="MEDIA">Média</option>
                     <option value="ALTA">Alta / Urgente</option>
                   </select>
                 </div>
-                {/* BOTÃO ARQUIVAR DE VOLTA */}
                 <div className="col-span-2">
-                  <button 
-                    onClick={() => salvarAlteracoes({ arquivado: !denunciaSelecionada.arquivado }, true)}
-                    className="w-full flex items-center justify-center gap-2 bg-slate-100 hover:bg-slate-200 text-slate-600 font-black py-3 rounded-xl transition-all uppercase text-[10px] tracking-widest border border-slate-200"
-                  >
+                  <button onClick={() => salvarAlteracoes({ arquivado: !denunciaSelecionada.arquivado }, true)} className="w-full flex items-center justify-center gap-2 bg-slate-100 hover:bg-slate-200 text-slate-600 font-black py-3 rounded-xl transition-all uppercase text-[10px] tracking-widest border border-slate-200">
                     <Archive className="w-4 h-4" /> {denunciaSelecionada.arquivado ? "Mover para Caixa de Entrada" : "Arquivar Protocolo"}
                   </button>
                 </div>
@@ -274,17 +228,12 @@ export default function PainelRH() {
                     <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1 mx-2">
                       {msg.remetente === 'RH' ? 'Você (RH)' : 'Empregado'}
                     </span>
-                    <div className={`p-6 rounded-3xl shadow-sm max-w-[85%] font-bold leading-relaxed text-sm ${
-                      msg.remetente === 'RH' 
-                        ? 'bg-emerald-600 text-white rounded-tr-sm shadow-emerald-600/20' 
-                        : 'bg-white border-2 border-slate-100 text-slate-700 rounded-tl-sm'
-                    }`}>
+                    <div className={`p-6 rounded-3xl shadow-sm max-w-[85%] font-bold leading-relaxed text-sm ${msg.remetente === 'RH' ? 'bg-emerald-600 text-white rounded-tr-sm shadow-emerald-600/20' : 'bg-white border-2 border-slate-100 text-slate-700 rounded-tl-sm'}`}>
                       {msg.texto}
                     </div>
                   </div>
                 ))
               )}
-              {/* Ancora para rolagem automática */}
               <div ref={chatEndRef} />
             </div>
 
@@ -297,10 +246,7 @@ export default function PainelRH() {
                   placeholder="Envie uma mensagem ou solicite mais informações (Aperte Enter para enviar)..."
                   className="flex-1 bg-slate-50 border-2 border-slate-100 rounded-3xl p-5 outline-none focus:border-emerald-500 font-bold text-slate-700 resize-none h-24 placeholder:text-slate-300 transition-all"
                 />
-                <button 
-                  onClick={enviarMensagemRH}
-                  className="bg-emerald-600 hover:bg-emerald-700 text-white p-5 rounded-3xl shadow-xl shadow-emerald-600/20 transition-all active:scale-95 h-24 px-8 flex flex-col items-center justify-center gap-2 group"
-                >
+                <button onClick={enviarMensagemRH} className="bg-emerald-600 hover:bg-emerald-700 text-white p-5 rounded-3xl shadow-xl shadow-emerald-600/20 transition-all active:scale-95 h-24 px-8 flex flex-col items-center justify-center gap-2 group">
                   <Send className="w-5 h-5 group-hover:translate-x-1 group-hover:-translate-y-1 transition-transform" />
                   <span className="font-black uppercase tracking-widest text-[9px]">Enviar</span>
                 </button>
@@ -315,19 +261,13 @@ export default function PainelRH() {
 }
 
 function SidebarLink({ icon, label, active, onClick }: any) {
-  return (
-    <button onClick={onClick} className={`w-full flex items-center gap-3 px-6 py-4 rounded-2xl font-black text-[10px] uppercase tracking-widest transition-all ${active ? "bg-emerald-600 text-white shadow-xl shadow-emerald-600/20" : "text-slate-400 hover:bg-slate-100 hover:text-slate-800"}`}>
-      {icon} {label}
-    </button>
-  );
+  return <button onClick={onClick} className={`w-full flex items-center gap-3 px-6 py-4 rounded-2xl font-black text-[10px] uppercase tracking-widest transition-all ${active ? "bg-emerald-600 text-white shadow-xl shadow-emerald-600/20" : "text-slate-400 hover:bg-slate-100 hover:text-slate-800"}`}>{icon} {label}</button>;
 }
 
 function StatsCard({ label, value, icon }: any) {
   return (
     <div className="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-xl shadow-slate-200/50 flex items-center gap-6 group hover:scale-[1.02] transition-all">
-      <div className="p-4 rounded-2xl bg-emerald-50 text-emerald-600 shadow-inner group-hover:bg-emerald-600 group-hover:text-white transition-all">
-        {icon}
-      </div>
+      <div className="p-4 rounded-2xl bg-emerald-50 text-emerald-600 shadow-inner group-hover:bg-emerald-600 group-hover:text-white transition-all">{icon}</div>
       <div>
         <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{label}</p>
         <p className="text-3xl font-black text-slate-800 tracking-tighter">{value || 0}</p>

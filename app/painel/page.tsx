@@ -21,7 +21,6 @@ export default function PainelEmpregado() {
   const [novaMensagem, setNovaMensagem] = useState("");
   const [loadingChat, setLoadingChat] = useState(false);
 
-  // Referência para rolar o chat para o final
   const chatEndRef = useRef<HTMLDivElement>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -61,22 +60,21 @@ export default function PainelEmpregado() {
 
   useEffect(() => { if (abaAtiva === "historico") carregarHistorico(); }, [abaAtiva]);
 
-  // --- O MOTOR DO TEMPO REAL DO EMPREGADO ---
+  // --- MOTOR DO TEMPO REAL BLINDADO CONTRA CACHE ---
   useEffect(() => {
     let intervalo: any;
     if (denunciaAtiva) {
       intervalo = setInterval(async () => {
         try {
-          const res = await fetch(`/api/chat?denuncia_id=${denunciaAtiva.id}`);
+          const res = await fetch(`/api/chat?denuncia_id=${denunciaAtiva.id}&t=${Date.now()}`, { cache: "no-store" });
           const data = await res.json();
           setMensagens(Array.isArray(data) ? data : []);
         } catch (e) {}
-      }, 3000); // Bate na porta do servidor a cada 3 segundos
+      }, 3000);
     }
     return () => clearInterval(intervalo);
   }, [denunciaAtiva]);
 
-  // --- AUTO SCROLL PARA A ÚLTIMA MENSAGEM ---
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [mensagens]);
@@ -87,7 +85,7 @@ export default function PainelEmpregado() {
     setDenunciaAtiva(item);
     setLoadingChat(true);
     try {
-      const res = await fetch(`/api/chat?denuncia_id=${item.id}`);
+      const res = await fetch(`/api/chat?denuncia_id=${item.id}&t=${Date.now()}`, { cache: "no-store" });
       const data = await res.json();
       setMensagens(Array.isArray(data) ? data : []);
     } catch (error) { setMensagens([]); } finally { setLoadingChat(false); }
@@ -103,8 +101,7 @@ export default function PainelEmpregado() {
       });
       setNovaMensagem("");
       
-      // Atualiza imediato para não esperar os 3 segundos
-      const res = await fetch(`/api/chat?denuncia_id=${denunciaAtiva.id}`);
+      const res = await fetch(`/api/chat?denuncia_id=${denunciaAtiva.id}&t=${Date.now()}`, { cache: "no-store" });
       const data = await res.json();
       setMensagens(Array.isArray(data) ? data : []);
     } catch (error) { alert("Erro ao enviar mensagem."); }
@@ -121,7 +118,6 @@ export default function PainelEmpregado() {
 
   return (
     <div className="min-h-screen bg-slate-50 pb-20 font-sans selection:bg-emerald-200 text-slate-900">
-      
       <header className="bg-white/80 backdrop-blur-md p-4 sticky top-0 z-40 border-b border-slate-200/50 shadow-sm">
         <div className="flex items-center justify-between max-w-2xl mx-auto">
           <div className="flex items-center gap-2.5">
@@ -135,14 +131,9 @@ export default function PainelEmpregado() {
       </header>
 
       <main className="max-w-2xl mx-auto p-5 mt-4">
-        
         <div className="flex bg-slate-200/50 p-1.5 rounded-[2rem] mb-10 shadow-inner border border-slate-200/50 max-w-md mx-auto">
-          <button onClick={() => { setAbaAtiva("nova"); setProtocoloGerado(""); }} className={`flex-1 flex items-center justify-center gap-2 py-3.5 text-xs font-black uppercase tracking-widest rounded-[1.8rem] transition-all duration-300 ${abaAtiva === "nova" ? "bg-white text-emerald-600 shadow-xl transform scale-[1.02]" : "text-slate-500 hover:text-slate-700"}`}>
-            <Plus className="w-4 h-4" /> Registrar
-          </button>
-          <button onClick={() => setAbaAtiva("historico")} className={`flex-1 flex items-center justify-center gap-2 py-3.5 text-xs font-black uppercase tracking-widest rounded-[1.8rem] transition-all duration-300 ${abaAtiva === "historico" ? "bg-white text-emerald-600 shadow-xl transform scale-[1.02]" : "text-slate-500 hover:text-slate-700"}`}>
-            <List className="w-4 h-4" /> Acompanhar
-          </button>
+          <button onClick={() => { setAbaAtiva("nova"); setProtocoloGerado(""); }} className={`flex-1 flex items-center justify-center gap-2 py-3.5 text-xs font-black uppercase tracking-widest rounded-[1.8rem] transition-all duration-300 ${abaAtiva === "nova" ? "bg-white text-emerald-600 shadow-xl transform scale-[1.02]" : "text-slate-500 hover:text-slate-700"}`}><Plus className="w-4 h-4" /> Registrar</button>
+          <button onClick={() => setAbaAtiva("historico")} className={`flex-1 flex items-center justify-center gap-2 py-3.5 text-xs font-black uppercase tracking-widest rounded-[1.8rem] transition-all duration-300 ${abaAtiva === "historico" ? "bg-white text-emerald-600 shadow-xl transform scale-[1.02]" : "text-slate-500 hover:text-slate-700"}`}><List className="w-4 h-4" /> Acompanhar</button>
         </div>
 
         {abaAtiva === "nova" && (
@@ -198,15 +189,11 @@ export default function PainelEmpregado() {
               historico.map((item, index) => (
                 <div key={index} className="bg-white p-8 rounded-[3rem] shadow-xl border border-slate-100 hover:border-emerald-100 transition-all duration-300">
                   <div className="flex justify-between items-center mb-6">
-                    <span className="text-[10px] font-black bg-slate-50 text-slate-500 px-3 py-1.5 rounded-lg border border-slate-100 font-mono">
-                      PROTOCOLO: {item.protocolo}
-                    </span>
+                    <span className="text-[10px] font-black bg-slate-50 text-slate-500 px-3 py-1.5 rounded-lg border border-slate-100 font-mono">PROTOCOLO: {item.protocolo}</span>
                     {getStatusVisual(item.status)}
                   </div>
-                  
                   <h3 className="font-black text-slate-800 mb-2 capitalize text-xl tracking-tighter">{item.categoria.replace("_", " ")}</h3>
                   <p className="text-sm text-slate-500 font-medium leading-relaxed mb-6 line-clamp-3">{item.descricao}</p>
-                  
                   <button onClick={() => abrirChat(item)} className="w-full py-4 bg-slate-900 hover:bg-emerald-600 text-white rounded-2xl font-black uppercase text-[10px] tracking-widest flex items-center justify-center gap-2 transition-all shadow-lg">
                     <MessageSquare className="w-4 h-4" /> Abrir Chat Seguro
                   </button>
@@ -217,21 +204,17 @@ export default function PainelEmpregado() {
         )}
       </main>
 
-      {/* MODAL DO CHAT SEGURO (EMPREGADO) - COM TEMPO REAL E ENTER */}
+      {/* MODAL DO CHAT SEGURO (EMPREGADO) */}
       {denunciaAtiva && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md z-50 flex justify-center sm:p-6 animate-in fade-in duration-300">
           <div className="bg-slate-50 w-full max-w-2xl h-full sm:h-[90vh] sm:rounded-[3rem] shadow-2xl flex flex-col overflow-hidden animate-in slide-in-from-bottom-10 duration-500 border border-slate-200">
-            
             <div className="bg-white p-6 sm:p-8 border-b border-slate-200 flex justify-between items-center shrink-0">
               <div className="flex items-center gap-4">
                 <div className="bg-emerald-600 p-3 sm:p-4 rounded-xl shadow-lg shadow-emerald-600/20 text-white"><Shield className="w-5 h-5 sm:w-6 sm:h-6" /></div>
                 <div>
                   <h3 className="text-xl sm:text-2xl font-black text-slate-800 uppercase tracking-tighter">Chat Anônimo</h3>
                   <p className="text-[9px] sm:text-[10px] font-black text-emerald-600 uppercase tracking-widest italic flex items-center gap-1">
-                    <span className="relative flex h-2 w-2">
-                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                      <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
-                    </span>
+                    <span className="relative flex h-2 w-2"><span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span><span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span></span>
                     Sincronizado
                   </p>
                 </div>
@@ -246,7 +229,6 @@ export default function PainelEmpregado() {
                   {denunciaAtiva.descricao}
                 </div>
               </div>
-
               {loadingChat ? (
                 <div className="flex justify-center pt-10"><div className="w-8 h-8 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin"></div></div>
               ) : (
@@ -255,17 +237,12 @@ export default function PainelEmpregado() {
                     <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1 mx-2">
                       {msg.remetente === 'EMPREGADO' ? 'Você' : 'Equipe de RH'}
                     </span>
-                    <div className={`p-5 sm:p-6 rounded-3xl shadow-sm max-w-[90%] sm:max-w-[85%] font-bold leading-relaxed text-sm ${
-                      msg.remetente === 'EMPREGADO' 
-                        ? 'bg-emerald-600 text-white rounded-tr-sm shadow-emerald-600/20' 
-                        : 'bg-white border-2 border-slate-100 text-slate-700 rounded-tl-sm'
-                    }`}>
+                    <div className={`p-5 sm:p-6 rounded-3xl shadow-sm max-w-[90%] sm:max-w-[85%] font-bold leading-relaxed text-sm ${msg.remetente === 'EMPREGADO' ? 'bg-emerald-600 text-white rounded-tr-sm shadow-emerald-600/20' : 'bg-white border-2 border-slate-100 text-slate-700 rounded-tl-sm'}`}>
                       {msg.texto}
                     </div>
                   </div>
                 ))
               )}
-              {/* Ancora para rolagem automática */}
               <div ref={chatEndRef} />
             </div>
 
@@ -283,10 +260,7 @@ export default function PainelEmpregado() {
                     placeholder="Digite sua mensagem (Enter para enviar)..."
                     className="flex-1 bg-slate-50 border-2 border-slate-100 rounded-2xl sm:rounded-3xl p-4 sm:p-5 outline-none focus:border-emerald-500 font-bold text-slate-700 resize-none h-20 sm:h-24 placeholder:text-slate-300 transition-all text-sm"
                   />
-                  <button 
-                    onClick={enviarMensagem}
-                    className="bg-emerald-600 hover:bg-emerald-700 text-white p-4 sm:p-5 rounded-2xl sm:rounded-3xl shadow-xl shadow-emerald-600/20 transition-all active:scale-95 h-20 sm:h-24 px-6 sm:px-8 flex flex-col items-center justify-center gap-1 sm:gap-2 group"
-                  >
+                  <button onClick={enviarMensagem} className="bg-emerald-600 hover:bg-emerald-700 text-white p-4 sm:p-5 rounded-2xl sm:rounded-3xl shadow-xl shadow-emerald-600/20 transition-all active:scale-95 h-20 sm:h-24 px-6 sm:px-8 flex flex-col items-center justify-center gap-1 sm:gap-2 group">
                     <Send className="w-4 h-4 sm:w-5 sm:h-5 group-hover:translate-x-1 group-hover:-translate-y-1 transition-transform" />
                     <span className="font-black uppercase tracking-widest text-[8px] sm:text-[9px]">Enviar</span>
                   </button>
