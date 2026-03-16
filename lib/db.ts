@@ -1,10 +1,12 @@
 import { Pool } from "pg";
 
-// Essa configuração obriga o código a usar a URL completa que está na Vercel
 const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-  // O ssl: { rejectUnauthorized: false } às vezes é necessário em bancos na nuvem/externos
-  ssl: process.env.NODE_ENV === "production" ? { rejectUnauthorized: false } : false,
+  user: process.env.DB_USER,
+  password: process.env.DB_PASSWORD,
+  host: process.env.DB_HOST,
+  port: Number(process.env.DB_PORT),
+  database: process.env.DB_NAME,
+  ssl: false 
 });
 
 export default pool;
