@@ -28,7 +28,9 @@ export default function PainelEmpregado() {
     setLoading(true);
     const empresa_id = localStorage.getItem("empresa_id");
     const empregado_id = localStorage.getItem("empregado_id");
+    
     if (!empresa_id || !empregado_id) return handleSair();
+    
     try {
       const response = await fetch("/api/denuncia", {
         method: "POST",
@@ -38,9 +40,16 @@ export default function PainelEmpregado() {
       const data = await response.json();
       if (response.ok) {
         setProtocoloGerado(data.protocolo);
-        setCategoria(""); setDescricao("");
-      } else alert(data.erro);
-    } catch (error) { alert("Erro de conexão."); } finally { setLoading(false); }
+        setCategoria(""); 
+        setDescricao("");
+      } else {
+        alert(data.erro);
+      }
+    } catch (error) { 
+      alert("Erro de conexão."); 
+    } finally { 
+      setLoading(false); 
+    }
   };
 
   const carregarHistorico = async () => {
@@ -55,18 +64,24 @@ export default function PainelEmpregado() {
       });
       const data = await response.json();
       if (response.ok) setHistorico(data.denuncias);
-    } catch (error) { console.error(error); } finally { setLoadingHistorico(false); }
+    } catch (error) { 
+      console.error(error); 
+    } finally { 
+      setLoadingHistorico(false); 
+    }
   };
 
-  useEffect(() => { if (abaAtiva === "historico") carregarHistorico(); }, [abaAtiva]);
+  useEffect(() => { 
+    if (abaAtiva === "historico") carregarHistorico(); 
+  }, [abaAtiva]);
 
-  // --- MOTOR DO TEMPO REAL BLINDADO CONTRA CACHE ---
+  // --- MOTOR DE TEMPO REAL USANDO PROTOCOLO ---
   useEffect(() => {
     let intervalo: any;
     if (denunciaAtiva) {
       intervalo = setInterval(async () => {
         try {
-          const res = await fetch(`/api/chat?denuncia_id=${denunciaAtiva.id}&t=${Date.now()}`, { cache: "no-store" });
+          const res = await fetch(`/api/chat?protocolo=${denunciaAtiva.protocolo}&t=${Date.now()}`, { cache: "no-store" });
           const data = await res.json();
           setMensagens(Array.isArray(data) ? data : []);
         } catch (e) {}
@@ -79,16 +94,23 @@ export default function PainelEmpregado() {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [mensagens]);
 
-  const handleSair = () => { localStorage.clear(); window.location.href = "/"; };
+  const handleSair = () => { 
+    localStorage.clear(); 
+    window.location.href = "/"; 
+  };
 
   const abrirChat = async (item: any) => {
     setDenunciaAtiva(item);
     setLoadingChat(true);
     try {
-      const res = await fetch(`/api/chat?denuncia_id=${item.id}&t=${Date.now()}`, { cache: "no-store" });
+      const res = await fetch(`/api/chat?protocolo=${item.protocolo}&t=${Date.now()}`, { cache: "no-store" });
       const data = await res.json();
       setMensagens(Array.isArray(data) ? data : []);
-    } catch (error) { setMensagens([]); } finally { setLoadingChat(false); }
+    } catch (error) { 
+      setMensagens([]); 
+    } finally { 
+      setLoadingChat(false); 
+    }
   };
 
   const enviarMensagem = async () => {
@@ -97,14 +119,16 @@ export default function PainelEmpregado() {
       await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ denuncia_id: denunciaAtiva.id, remetente: "EMPREGADO", texto: novaMensagem })
+        body: JSON.stringify({ protocolo: denunciaAtiva.protocolo, remetente: "EMPREGADO", texto: novaMensagem })
       });
       setNovaMensagem("");
       
-      const res = await fetch(`/api/chat?denuncia_id=${denunciaAtiva.id}&t=${Date.now()}`, { cache: "no-store" });
+      const res = await fetch(`/api/chat?protocolo=${denunciaAtiva.protocolo}&t=${Date.now()}`, { cache: "no-store" });
       const data = await res.json();
       setMensagens(Array.isArray(data) ? data : []);
-    } catch (error) { alert("Erro ao enviar mensagem."); }
+    } catch (error) { 
+      alert("Erro ao enviar mensagem."); 
+    }
   };
 
   const getStatusVisual = (status: string) => {
@@ -121,7 +145,9 @@ export default function PainelEmpregado() {
       <header className="bg-white/80 backdrop-blur-md p-4 sticky top-0 z-40 border-b border-slate-200/50 shadow-sm">
         <div className="flex items-center justify-between max-w-2xl mx-auto">
           <div className="flex items-center gap-2.5">
-            <div className="bg-emerald-600 p-1.5 rounded-xl shadow-lg shadow-emerald-600/20"><Shield className="text-white w-5 h-5" /></div>
+            <div className="bg-emerald-600 p-1.5 rounded-xl shadow-lg shadow-emerald-600/20">
+              <Shield className="text-white w-5 h-5" />
+            </div>
             <h1 className="font-black text-lg tracking-tighter text-slate-800 uppercase">Canal Seguro</h1>
           </div>
           <button onClick={handleSair} className="flex items-center gap-2 text-[10px] font-black bg-white border border-slate-200 px-4 py-2 rounded-xl text-slate-500 hover:text-rose-600 transition-all uppercase tracking-widest active:scale-95 shadow-sm">
@@ -132,8 +158,12 @@ export default function PainelEmpregado() {
 
       <main className="max-w-2xl mx-auto p-5 mt-4">
         <div className="flex bg-slate-200/50 p-1.5 rounded-[2rem] mb-10 shadow-inner border border-slate-200/50 max-w-md mx-auto">
-          <button onClick={() => { setAbaAtiva("nova"); setProtocoloGerado(""); }} className={`flex-1 flex items-center justify-center gap-2 py-3.5 text-xs font-black uppercase tracking-widest rounded-[1.8rem] transition-all duration-300 ${abaAtiva === "nova" ? "bg-white text-emerald-600 shadow-xl transform scale-[1.02]" : "text-slate-500 hover:text-slate-700"}`}><Plus className="w-4 h-4" /> Registrar</button>
-          <button onClick={() => setAbaAtiva("historico")} className={`flex-1 flex items-center justify-center gap-2 py-3.5 text-xs font-black uppercase tracking-widest rounded-[1.8rem] transition-all duration-300 ${abaAtiva === "historico" ? "bg-white text-emerald-600 shadow-xl transform scale-[1.02]" : "text-slate-500 hover:text-slate-700"}`}><List className="w-4 h-4" /> Acompanhar</button>
+          <button onClick={() => { setAbaAtiva("nova"); setProtocoloGerado(""); }} className={`flex-1 flex items-center justify-center gap-2 py-3.5 text-xs font-black uppercase tracking-widest rounded-[1.8rem] transition-all duration-300 ${abaAtiva === "nova" ? "bg-white text-emerald-600 shadow-xl transform scale-[1.02]" : "text-slate-500 hover:text-slate-700"}`}>
+            <Plus className="w-4 h-4" /> Registrar
+          </button>
+          <button onClick={() => setAbaAtiva("historico")} className={`flex-1 flex items-center justify-center gap-2 py-3.5 text-xs font-black uppercase tracking-widest rounded-[1.8rem] transition-all duration-300 ${abaAtiva === "historico" ? "bg-white text-emerald-600 shadow-xl transform scale-[1.02]" : "text-slate-500 hover:text-slate-700"}`}>
+            <List className="w-4 h-4" /> Acompanhar
+          </button>
         </div>
 
         {abaAtiva === "nova" && (
@@ -204,22 +234,29 @@ export default function PainelEmpregado() {
         )}
       </main>
 
-      {/* MODAL DO CHAT SEGURO (EMPREGADO) */}
+      {/* MODAL DO CHAT SEGURO */}
       {denunciaAtiva && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md z-50 flex justify-center sm:p-6 animate-in fade-in duration-300">
           <div className="bg-slate-50 w-full max-w-2xl h-full sm:h-[90vh] sm:rounded-[3rem] shadow-2xl flex flex-col overflow-hidden animate-in slide-in-from-bottom-10 duration-500 border border-slate-200">
             <div className="bg-white p-6 sm:p-8 border-b border-slate-200 flex justify-between items-center shrink-0">
               <div className="flex items-center gap-4">
-                <div className="bg-emerald-600 p-3 sm:p-4 rounded-xl shadow-lg shadow-emerald-600/20 text-white"><Shield className="w-5 h-5 sm:w-6 sm:h-6" /></div>
+                <div className="bg-emerald-600 p-3 sm:p-4 rounded-xl shadow-lg shadow-emerald-600/20 text-white">
+                  <Shield className="w-5 h-5 sm:w-6 sm:h-6" />
+                </div>
                 <div>
                   <h3 className="text-xl sm:text-2xl font-black text-slate-800 uppercase tracking-tighter">Chat Anônimo</h3>
                   <p className="text-[9px] sm:text-[10px] font-black text-emerald-600 uppercase tracking-widest italic flex items-center gap-1">
-                    <span className="relative flex h-2 w-2"><span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span><span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span></span>
+                    <span className="relative flex h-2 w-2">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                      <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                    </span>
                     Sincronizado
                   </p>
                 </div>
               </div>
-              <button onClick={() => setDenunciaAtiva(null)} className="p-3 bg-slate-100 hover:bg-rose-50 hover:text-rose-600 rounded-2xl transition-all text-slate-400"><X className="w-5 h-5" /></button>
+              <button onClick={() => setDenunciaAtiva(null)} className="p-3 bg-slate-100 hover:bg-rose-50 hover:text-rose-600 rounded-2xl transition-all text-slate-400">
+                <X className="w-5 h-5" />
+              </button>
             </div>
 
             <div className="flex-1 p-6 sm:p-8 overflow-y-auto space-y-6">
@@ -229,6 +266,7 @@ export default function PainelEmpregado() {
                   {denunciaAtiva.descricao}
                 </div>
               </div>
+              
               {loadingChat ? (
                 <div className="flex justify-center pt-10"><div className="w-8 h-8 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin"></div></div>
               ) : (

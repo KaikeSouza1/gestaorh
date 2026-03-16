@@ -27,18 +27,24 @@ export default function PainelRH() {
       const res = await fetch(`/api/rh/denuncias?${query}`);
       const data = await res.json();
       setDados(data);
-    } catch (error) { console.error(error); } finally { setLoading(false); }
+    } catch (error) { 
+      console.error(error); 
+    } finally { 
+      setLoading(false); 
+    }
   };
 
-  useEffect(() => { carregarDados(); }, [filtros]);
+  useEffect(() => { 
+    carregarDados(); 
+  }, [filtros]);
 
-  // --- MOTOR DO TEMPO REAL BLINDADO CONTRA CACHE ---
+  // --- MOTOR DE TEMPO REAL USANDO PROTOCOLO ---
   useEffect(() => {
     let intervalo: any;
     if (denunciaSelecionada) {
       intervalo = setInterval(async () => {
         try {
-          const res = await fetch(`/api/chat?denuncia_id=${denunciaSelecionada.id}&t=${Date.now()}`, { cache: "no-store" });
+          const res = await fetch(`/api/chat?protocolo=${denunciaSelecionada.protocolo}&t=${Date.now()}`, { cache: "no-store" });
           const data = await res.json();
           setMensagens(Array.isArray(data) ? data : []);
         } catch (e) {}
@@ -47,16 +53,22 @@ export default function PainelRH() {
     return () => clearInterval(intervalo);
   }, [denunciaSelecionada]);
 
-  useEffect(() => { chatEndRef.current?.scrollIntoView({ behavior: "smooth" }); }, [mensagens]);
+  useEffect(() => { 
+    chatEndRef.current?.scrollIntoView({ behavior: "smooth" }); 
+  }, [mensagens]);
 
   const abrirDenuncia = async (item: any) => {
     setDenunciaSelecionada(item);
     setLoadingChat(true);
     try {
-      const res = await fetch(`/api/chat?denuncia_id=${item.id}&t=${Date.now()}`, { cache: "no-store" });
+      const res = await fetch(`/api/chat?protocolo=${item.protocolo}&t=${Date.now()}`, { cache: "no-store" });
       const data = await res.json();
       setMensagens(Array.isArray(data) ? data : []);
-    } catch (e) { setMensagens([]); } finally { setLoadingChat(false); }
+    } catch (e) { 
+      setMensagens([]); 
+    } finally { 
+      setLoadingChat(false); 
+    }
   };
 
   const enviarMensagemRH = async () => {
@@ -65,14 +77,16 @@ export default function PainelRH() {
       await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ denuncia_id: denunciaSelecionada.id, remetente: "RH", texto: novaMensagem })
+        body: JSON.stringify({ protocolo: denunciaSelecionada.protocolo, remetente: "RH", texto: novaMensagem })
       });
       setNovaMensagem("");
       
-      const res = await fetch(`/api/chat?denuncia_id=${denunciaSelecionada.id}&t=${Date.now()}`, { cache: "no-store" });
+      const res = await fetch(`/api/chat?protocolo=${denunciaSelecionada.protocolo}&t=${Date.now()}`, { cache: "no-store" });
       const data = await res.json();
       setMensagens(Array.isArray(data) ? data : []);
-    } catch (error) { alert("Erro ao enviar mensagem."); }
+    } catch (error) { 
+      alert("Erro ao enviar mensagem."); 
+    }
   };
 
   const salvarAlteracoes = async (campos: any, fecharAposSalvar = false) => {
@@ -88,7 +102,9 @@ export default function PainelRH() {
         if (fecharAposSalvar) setDenunciaSelecionada(null);
         carregarDados();
       }
-    } finally { setSalvando(false); }
+    } finally { 
+      setSalvando(false); 
+    }
   };
 
   if (loading && dados.lista.length === 0) return <div className="h-screen flex items-center justify-center bg-slate-50 font-black text-emerald-600 animate-pulse tracking-widest uppercase">Carregando Painel...</div>;
@@ -99,12 +115,18 @@ export default function PainelRH() {
       <aside className="w-72 bg-white flex flex-col border-r border-slate-200 sticky top-0 h-screen z-20">
         <div className="p-8">
           <div className="flex items-center gap-3 mb-10">
-            <div className="p-2 bg-emerald-600 rounded-xl shadow-lg shadow-emerald-600/20"><Shield className="w-6 h-6 text-white" /></div>
+            <div className="p-2 bg-emerald-600 rounded-xl shadow-lg shadow-emerald-600/20">
+              <Shield className="w-6 h-6 text-white" />
+            </div>
             <h1 className="font-black text-lg tracking-tighter text-slate-800 uppercase">Canal Seguro</h1>
           </div>
           <nav className="space-y-2">
-            <SidebarLink icon={<Inbox className="w-4 h-4" />} label="Denúncias" active={!filtros.arquivados} onClick={() => setFiltros({...filtros, arquivados: false})} />
-            <SidebarLink icon={<Archive className="w-4 h-4" />} label="Arquivados" active={filtros.arquivados} onClick={() => setFiltros({...filtros, arquivados: true})} />
+            <button onClick={() => setFiltros({...filtros, arquivados: false})} className={`w-full flex items-center gap-3 px-6 py-4 rounded-2xl font-black text-[10px] uppercase tracking-widest transition-all ${!filtros.arquivados ? "bg-emerald-600 text-white shadow-xl shadow-emerald-600/20" : "text-slate-400 hover:bg-slate-100 hover:text-slate-800"}`}>
+              <Inbox className="w-4 h-4" /> Denúncias
+            </button>
+            <button onClick={() => setFiltros({...filtros, arquivados: true})} className={`w-full flex items-center gap-3 px-6 py-4 rounded-2xl font-black text-[10px] uppercase tracking-widest transition-all ${filtros.arquivados ? "bg-emerald-600 text-white shadow-xl shadow-emerald-600/20" : "text-slate-400 hover:bg-slate-100 hover:text-slate-800"}`}>
+              <Archive className="w-4 h-4" /> Arquivados
+            </button>
           </nav>
         </div>
         <div className="mt-auto p-6">
@@ -132,10 +154,34 @@ export default function PainelRH() {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-            <StatsCard label="Total" value={dados.stats.total} icon={<Layers />} />
-            <StatsCard label="Pendentes" value={dados.stats.pendentes} icon={<Clock />} />
-            <StatsCard label="Críticos" value={dados.stats.criticos} icon={<AlertTriangle />} />
-            <StatsCard label="Políticos" value={dados.stats.politicos} icon={<Shield />} />
+            <div className="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-xl shadow-slate-200/50 flex items-center gap-6 group hover:scale-[1.02] transition-all">
+              <div className="p-4 rounded-2xl bg-emerald-50 text-emerald-600 shadow-inner group-hover:bg-emerald-600 group-hover:text-white transition-all"><Layers /></div>
+              <div>
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Total</p>
+                <p className="text-3xl font-black text-slate-800 tracking-tighter">{dados.stats.total || 0}</p>
+              </div>
+            </div>
+            <div className="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-xl shadow-slate-200/50 flex items-center gap-6 group hover:scale-[1.02] transition-all">
+              <div className="p-4 rounded-2xl bg-emerald-50 text-emerald-600 shadow-inner group-hover:bg-emerald-600 group-hover:text-white transition-all"><Clock /></div>
+              <div>
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Pendentes</p>
+                <p className="text-3xl font-black text-slate-800 tracking-tighter">{dados.stats.pendentes || 0}</p>
+              </div>
+            </div>
+             <div className="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-xl shadow-slate-200/50 flex items-center gap-6 group hover:scale-[1.02] transition-all">
+              <div className="p-4 rounded-2xl bg-emerald-50 text-emerald-600 shadow-inner group-hover:bg-emerald-600 group-hover:text-white transition-all"><AlertTriangle /></div>
+              <div>
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Críticos</p>
+                <p className="text-3xl font-black text-slate-800 tracking-tighter">{dados.stats.criticos || 0}</p>
+              </div>
+            </div>
+             <div className="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-xl shadow-slate-200/50 flex items-center gap-6 group hover:scale-[1.02] transition-all">
+              <div className="p-4 rounded-2xl bg-emerald-50 text-emerald-600 shadow-inner group-hover:bg-emerald-600 group-hover:text-white transition-all"><Shield /></div>
+              <div>
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Políticos</p>
+                <p className="text-3xl font-black text-slate-800 tracking-tighter">{dados.stats.politicos || 0}</p>
+              </div>
+            </div>
           </div>
 
           <div className="bg-white rounded-[2.5rem] border border-slate-200 shadow-xl shadow-slate-200/50 overflow-hidden">
@@ -157,10 +203,20 @@ export default function PainelRH() {
                       <p className="font-black text-slate-700 uppercase text-xs tracking-tight">{item.categoria.replace('_', ' ')}</p>
                       <p className="text-[10px] font-bold text-slate-400 mt-1">{new Date(item.criado_em).toLocaleDateString()}</p>
                     </td>
-                    <td className="px-10 py-8 text-center"><PriorityBadge level={item.prioridade} /></td>
-                    <td className="px-10 py-8"><StatusBadge status={item.status} /></td>
+                    <td className="px-10 py-8 text-center">
+                      <span className={`px-4 py-1.5 rounded-lg text-[10px] font-black border uppercase tracking-widest ${item.prioridade === 'ALTA' ? 'bg-rose-100 text-rose-600 border-rose-200' : item.prioridade === 'BAIXA' ? 'bg-slate-100 text-slate-500 border-slate-200' : 'bg-emerald-100 text-emerald-600 border-emerald-200'}`}>
+                        {item.prioridade || 'MÉDIA'}
+                      </span>
+                    </td>
+                    <td className="px-10 py-8">
+                      <span className={`px-4 py-1.5 rounded-full text-[10px] font-black border uppercase tracking-widest ${item.status === 'EM_ANALISE' ? 'bg-blue-100 text-blue-700 border-blue-200' : item.status === 'RESOLVIDO' ? 'bg-emerald-100 text-emerald-700 border-emerald-200 shadow-sm' : 'bg-amber-100 text-amber-600 border-amber-200'}`}>
+                        {item.status}
+                      </span>
+                    </td>
                     <td className="px-10 py-8 text-right pr-14">
-                      <div className="inline-flex p-3 bg-white border border-slate-200 text-slate-400 rounded-xl group-hover:bg-emerald-600 group-hover:text-white group-hover:border-emerald-600 transition-all shadow-sm"><MessageSquare className="w-5 h-5" /></div>
+                      <div className="inline-flex p-3 bg-white border border-slate-200 text-slate-400 rounded-xl group-hover:bg-emerald-600 group-hover:text-white group-hover:border-emerald-600 transition-all shadow-sm">
+                        <MessageSquare className="w-5 h-5" />
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -170,22 +226,29 @@ export default function PainelRH() {
         </div>
       </main>
 
-      {/* MODAL DE ANÁLISE RESTAURADO E BLINDADO CONTRA CACHE */}
+      {/* MODAL DE ANÁLISE DO RH */}
       {denunciaSelecionada && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md z-50 flex justify-end animate-in fade-in duration-300">
           <div className="bg-slate-50 w-full max-w-2xl h-full shadow-2xl flex flex-col animate-in slide-in-from-right duration-500 border-l border-slate-200">
             <div className="bg-white p-6 sm:p-8 border-b border-slate-200 flex justify-between items-center shrink-0">
               <div className="flex items-center gap-4">
-                <div className="bg-emerald-600 p-4 rounded-xl shadow-lg shadow-emerald-600/20 text-white"><UserSearch className="w-6 h-6" /></div>
+                <div className="bg-emerald-600 p-4 rounded-xl shadow-lg shadow-emerald-600/20 text-white">
+                  <UserSearch className="w-6 h-6" />
+                </div>
                 <div>
                   <h3 className="text-3xl font-black text-slate-800 uppercase tracking-tighter">{denunciaSelecionada.protocolo}</h3>
                   <p className="text-[10px] font-black text-emerald-600 uppercase tracking-widest italic flex items-center gap-1">
-                    <span className="relative flex h-2 w-2"><span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span><span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span></span>
+                    <span className="relative flex h-2 w-2">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                      <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                    </span>
                     Sincronização Ativa
                   </p>
                 </div>
               </div>
-              <button onClick={() => setDenunciaSelecionada(null)} className="p-3 bg-slate-100 hover:bg-rose-50 hover:text-rose-600 rounded-2xl transition-all text-slate-400"><X className="w-6 h-6"/></button>
+              <button onClick={() => setDenunciaSelecionada(null)} className="p-3 bg-slate-100 hover:bg-rose-50 hover:text-rose-600 rounded-2xl transition-all text-slate-400">
+                <X className="w-6 h-6"/>
+              </button>
             </div>
 
             <div className="bg-white px-8 py-6 border-b border-slate-200 shrink-0 grid grid-cols-2 gap-6 shadow-sm z-10">
@@ -258,30 +321,4 @@ export default function PainelRH() {
       )}
     </div>
   );
-}
-
-function SidebarLink({ icon, label, active, onClick }: any) {
-  return <button onClick={onClick} className={`w-full flex items-center gap-3 px-6 py-4 rounded-2xl font-black text-[10px] uppercase tracking-widest transition-all ${active ? "bg-emerald-600 text-white shadow-xl shadow-emerald-600/20" : "text-slate-400 hover:bg-slate-100 hover:text-slate-800"}`}>{icon} {label}</button>;
-}
-
-function StatsCard({ label, value, icon }: any) {
-  return (
-    <div className="bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-xl shadow-slate-200/50 flex items-center gap-6 group hover:scale-[1.02] transition-all">
-      <div className="p-4 rounded-2xl bg-emerald-50 text-emerald-600 shadow-inner group-hover:bg-emerald-600 group-hover:text-white transition-all">{icon}</div>
-      <div>
-        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{label}</p>
-        <p className="text-3xl font-black text-slate-800 tracking-tighter">{value || 0}</p>
-      </div>
-    </div>
-  );
-}
-
-function PriorityBadge({ level }: { level: string }) {
-  const cfg: any = { ALTA: "bg-rose-100 text-rose-600 border-rose-200", MEDIA: "bg-emerald-100 text-emerald-600 border-emerald-200", BAIXA: "bg-slate-100 text-slate-500 border-slate-200" };
-  return <span className={`px-4 py-1.5 rounded-lg text-[10px] font-black border uppercase tracking-widest ${cfg[level] || cfg.MEDIA}`}>{level || 'MÉDIA'}</span>;
-}
-
-function StatusBadge({ status }: { status: string }) {
-  const cfg: any = { PENDENTE: "bg-amber-100 text-amber-600 border-amber-200", EM_ANALISE: "bg-blue-100 text-blue-700 border-blue-200", RESOLVIDO: "bg-emerald-100 text-emerald-700 border-emerald-200 shadow-sm" };
-  return <span className={`px-4 py-1.5 rounded-full text-[10px] font-black border uppercase tracking-widest ${cfg[status] || cfg.PENDENTE}`}>{status}</span>;
 }
