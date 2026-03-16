@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { 
   Shield, Search, AlertTriangle, CheckCircle, 
   Clock, ChevronRight, LogOut, MessageSquare, X, 
@@ -14,10 +14,12 @@ export default function PainelRH() {
   const [denunciaSelecionada, setDenunciaSelecionada] = useState<any>(null);
   const [salvando, setSalvando] = useState(false);
 
-  // --- ESTADOS DO CHAT ---
   const [mensagens, setMensagens] = useState<any[]>([]);
   const [novaMensagem, setNovaMensagem] = useState("");
   const [loadingChat, setLoadingChat] = useState(false);
+  
+  // Referência para rolar o chat para o final automaticamente
+  const chatEndRef = useRef<HTMLDivElement>(null);
 
   const carregarDados = async () => {
     const empId = localStorage.getItem("empresa_id");
@@ -36,7 +38,26 @@ export default function PainelRH() {
 
   useEffect(() => { carregarDados(); }, [filtros]);
 
-  // --- FUNÇÕES DO CHAT E STATUS ---
+  // --- O MOTOR DO TEMPO REAL (POLLING) ---
+  useEffect(() => {
+    let intervalo: any;
+    if (denunciaSelecionada) {
+      intervalo = setInterval(async () => {
+        try {
+          const res = await fetch(`/api/chat?denuncia_id=${denunciaSelecionada.id}`);
+          const data = await res.json();
+          setMensagens(Array.isArray(data) ? data : []);
+        } catch (e) {}
+      }, 3000); // Atualiza a cada 3 segundos silenciosamente
+    }
+    return () => clearInterval(intervalo);
+  }, [denunciaSelecionada]);
+
+  // --- AUTO SCROLL PARA A ÚLTIMA MENSAGEM ---
+  useEffect(() => {
+    chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [mensagens]);
+
   const abrirDenuncia = async (item: any) => {
     setDenunciaSelecionada(item);
     setLoadingChat(true);
@@ -57,14 +78,14 @@ export default function PainelRH() {
       await fetch("/api/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ 
-          denuncia_id: denunciaSelecionada.id, 
-          remetente: "RH", 
-          texto: novaMensagem 
-        })
+        body: JSON.stringify({ denuncia_id: denunciaSelecionada.id, remetente: "RH", texto: novaMensagem })
       });
       setNovaMensagem("");
-      abrirDenuncia(denunciaSelecionada); // Recarrega o chat para ver a mensagem
+      
+      // Busca instantaneamente após enviar para não esperar os 3 seg do polling
+      const res = await fetch(`/api/chat?denuncia_id=${denunciaSelecionada.id}`);
+      const data = await res.json();
+      setMensagens(Array.isArray(data) ? data : []);
     } catch (error) {
       alert("Erro ao enviar mensagem.");
     }
@@ -78,7 +99,6 @@ export default function PainelRH() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ denuncia_id: denunciaSelecionada.id, ...campos }),
       });
-      
       if (res.ok) {
         setDenunciaSelecionada({ ...denunciaSelecionada, ...campos });
         if (fecharAposSalvar) setDenunciaSelecionada(null);
@@ -138,7 +158,6 @@ export default function PainelRH() {
             </div>
           </div>
 
-          {/* Stats Cards */}
           <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
             <StatsCard label="Total" value={dados.stats.total} icon={<Layers />} />
             <StatsCard label="Pendentes" value={dados.stats.pendentes} icon={<Clock />} />
@@ -146,7 +165,6 @@ export default function PainelRH() {
             <StatsCard label="Políticos" value={dados.stats.politicos} icon={<Shield />} />
           </div>
 
-          {/* Tabela Branca e Perfeita */}
           <div className="bg-white rounded-[2.5rem] border border-slate-200 shadow-xl shadow-slate-200/50 overflow-hidden">
             <table className="w-full text-left">
               <thead>
@@ -181,13 +199,12 @@ export default function PainelRH() {
         </div>
       </main>
 
-      {/* Modal de Análise - COM CHAT EMBUTIDO */}
+      {/* MODAL DE ANÁLISE RESTAURADO (COM TODOS OS BOTÕES E CHAT EM TEMPO REAL) */}
       {denunciaSelecionada && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md z-50 flex justify-end animate-in fade-in duration-300">
           <div className="bg-slate-50 w-full max-w-2xl h-full shadow-2xl flex flex-col animate-in slide-in-from-right duration-500 border-l border-slate-200">
             
-            {/* CABEÇALHO DO MODAL */}
-            <div className="bg-white p-8 border-b border-slate-200 flex justify-between items-center shrink-0">
+            <div className="bg-white p-6 sm:p-8 border-b border-slate-200 flex justify-between items-center shrink-0">
               <div className="flex items-center gap-4">
                 <div className="bg-emerald-600 p-4 rounded-xl shadow-lg shadow-emerald-600/20 text-white"><UserSearch className="w-6 h-6" /></div>
                 <div>
@@ -197,15 +214,15 @@ export default function PainelRH() {
                       <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
                       <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
                     </span>
-                    Investigação Ativa
+                    Sincronização Ativa
                   </p>
                 </div>
               </div>
               <button onClick={() => setDenunciaSelecionada(null)} className="p-3 bg-slate-100 hover:bg-rose-50 hover:text-rose-600 rounded-2xl transition-all text-slate-400"><X className="w-6 h-6"/></button>
             </div>
 
-            {/* BARRA DE CONTROLE (STATUS E PRIORIDADE) */}
-            <div className="bg-white px-8 py-4 border-b border-slate-200 shrink-0 grid grid-cols-2 gap-6 shadow-sm z-10">
+            {/* RESTAUREI TODOS OS CAMPOS DE GESTÃO AQUI */}
+            <div className="bg-white px-8 py-6 border-b border-slate-200 shrink-0 grid grid-cols-2 gap-6 shadow-sm z-10">
                <div className="space-y-1">
                   <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Status do Caso</label>
                   <select 
@@ -230,12 +247,18 @@ export default function PainelRH() {
                     <option value="ALTA">Alta / Urgente</option>
                   </select>
                 </div>
+                {/* BOTÃO ARQUIVAR DE VOLTA */}
+                <div className="col-span-2">
+                  <button 
+                    onClick={() => salvarAlteracoes({ arquivado: !denunciaSelecionada.arquivado }, true)}
+                    className="w-full flex items-center justify-center gap-2 bg-slate-100 hover:bg-slate-200 text-slate-600 font-black py-3 rounded-xl transition-all uppercase text-[10px] tracking-widest border border-slate-200"
+                  >
+                    <Archive className="w-4 h-4" /> {denunciaSelecionada.arquivado ? "Mover para Caixa de Entrada" : "Arquivar Protocolo"}
+                  </button>
+                </div>
             </div>
 
-            {/* ÁREA DE CHAT (ROLAGEM) */}
             <div className="flex-1 p-8 overflow-y-auto space-y-6">
-              
-              {/* RELATO INICIAL DO EMPREGADO */}
               <div className="flex flex-col items-start w-full">
                 <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1 ml-2">Relato Original (Anônimo)</span>
                 <div className="bg-white border-2 border-slate-100 p-6 rounded-3xl rounded-tl-sm shadow-sm text-slate-700 font-bold leading-relaxed max-w-[85%] text-sm">
@@ -243,12 +266,11 @@ export default function PainelRH() {
                 </div>
               </div>
 
-              {/* MENSAGENS DO CHAT */}
               {loadingChat ? (
                 <div className="flex justify-center pt-10"><div className="w-8 h-8 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin"></div></div>
               ) : (
                 mensagens.map((msg: any) => (
-                  <div key={msg.id} className={`flex flex-col ${msg.remetente === 'RH' ? 'items-end' : 'items-start'} w-full`}>
+                  <div key={msg.id} className={`flex flex-col ${msg.remetente === 'RH' ? 'items-end' : 'items-start'} w-full animate-in fade-in slide-in-from-bottom-2`}>
                     <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1 mx-2">
                       {msg.remetente === 'RH' ? 'Você (RH)' : 'Empregado'}
                     </span>
@@ -262,15 +284,17 @@ export default function PainelRH() {
                   </div>
                 ))
               )}
+              {/* Ancora para rolagem automática */}
+              <div ref={chatEndRef} />
             </div>
 
-            {/* BARRA DE DIGITAÇÃO FIXA NO RODAPÉ */}
             <div className="bg-white p-6 border-t border-slate-200 shrink-0">
               <div className="flex items-end gap-4">
                 <textarea 
                   value={novaMensagem}
                   onChange={(e) => setNovaMensagem(e.target.value)}
-                  placeholder="Envie uma mensagem ou solicite mais informações..."
+                  onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); enviarMensagemRH(); } }}
+                  placeholder="Envie uma mensagem ou solicite mais informações (Aperte Enter para enviar)..."
                   className="flex-1 bg-slate-50 border-2 border-slate-100 rounded-3xl p-5 outline-none focus:border-emerald-500 font-bold text-slate-700 resize-none h-24 placeholder:text-slate-300 transition-all"
                 />
                 <button 
@@ -313,19 +337,11 @@ function StatsCard({ label, value, icon }: any) {
 }
 
 function PriorityBadge({ level }: { level: string }) {
-  const cfg: any = { 
-    ALTA: "bg-rose-100 text-rose-600 border-rose-200", 
-    MEDIA: "bg-emerald-100 text-emerald-600 border-emerald-200", 
-    BAIXA: "bg-slate-100 text-slate-500 border-slate-200" 
-  };
+  const cfg: any = { ALTA: "bg-rose-100 text-rose-600 border-rose-200", MEDIA: "bg-emerald-100 text-emerald-600 border-emerald-200", BAIXA: "bg-slate-100 text-slate-500 border-slate-200" };
   return <span className={`px-4 py-1.5 rounded-lg text-[10px] font-black border uppercase tracking-widest ${cfg[level] || cfg.MEDIA}`}>{level || 'MÉDIA'}</span>;
 }
 
 function StatusBadge({ status }: { status: string }) {
-  const cfg: any = { 
-    PENDENTE: "bg-amber-100 text-amber-600 border-amber-200", 
-    EM_ANALISE: "bg-blue-100 text-blue-700 border-blue-200", 
-    RESOLVIDO: "bg-emerald-100 text-emerald-700 border-emerald-200 shadow-sm" 
-  };
+  const cfg: any = { PENDENTE: "bg-amber-100 text-amber-600 border-amber-200", EM_ANALISE: "bg-blue-100 text-blue-700 border-blue-200", RESOLVIDO: "bg-emerald-100 text-emerald-700 border-emerald-200 shadow-sm" };
   return <span className={`px-4 py-1.5 rounded-full text-[10px] font-black border uppercase tracking-widest ${cfg[status] || cfg.PENDENTE}`}>{status}</span>;
 }
