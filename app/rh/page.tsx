@@ -26,12 +26,16 @@ async function fetchMensagens(protocolo: string) {
 }
 
 export default function PainelRH() {
-  const [sessao, setSessao] = useState<any>(null);
-  const [loadingSessao, setLoadingSessao] = useState(true);
+  // ── O middleware já garantiu que o usuário está autenticado.
+  // ── Usamos localStorage apenas para dados de exibição (não-sensíveis).
+  const [empresaId]    = useState(() => typeof window !== "undefined" ? localStorage.getItem("empresa_id")   || "" : "");
+  const [razaoSocial]  = useState(() => typeof window !== "undefined" ? localStorage.getItem("razao_social") || "" : "");
+  const [rhNome]       = useState(() => typeof window !== "undefined" ? localStorage.getItem("rh_nome")      || "" : "");
 
   const [dados, setDados] = useState<any>({ stats: {}, lista: [] });
   const [loading, setLoading] = useState(true);
   const [filtros, setFiltros] = useState({ busca: "", categoria: "", status: "", arquivados: false });
+
   const [denunciaSelecionada, setDenunciaSelecionada] = useState<any>(null);
   const [salvando, setSalvando] = useState(false);
 
@@ -49,39 +53,15 @@ export default function PainelRH() {
   const denunciaSelecionadaRef = useRef<any>(null);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  useEffect(() => {
-    denunciaSelecionadaRef.current = denunciaSelecionada;
-  }, [denunciaSelecionada]);
+  useEffect(() => { denunciaSelecionadaRef.current = denunciaSelecionada; }, [denunciaSelecionada]);
 
-  // ── Hidrata sessão via cookie (sem depender de localStorage para segurança) ──
-  useEffect(() => {
-    const carregarSessao = async () => {
-      try {
-        const res = await fetch("/api/rh/me", { credentials: "include" });
-        if (!res.ok) {
-          window.location.href = "/rh/login";
-          return;
-        }
-        const data = await res.json();
-        setSessao(data);
-        // Sincroniza localStorage apenas para dados de exibição
-        if (data.razao_social) localStorage.setItem("razao_social", data.razao_social);
-        if (data.empresa_id) localStorage.setItem("empresa_id", data.empresa_id);
-      } catch {
-        window.location.href = "/rh/login";
-      } finally {
-        setLoadingSessao(false);
-      }
-    };
-    carregarSessao();
-  }, []);
-
-  const carregarDados = async () => {
-    const empresaId = sessao?.empresa_id || localStorage.getItem("empresa_id");
+  const carregarDados = useCallback(async () => {
     if (!empresaId) return;
     const query = new URLSearchParams({
       empresa_id: empresaId,
-      ...filtros,
+      busca: filtros.busca,
+      categoria: filtros.categoria,
+      status: filtros.status,
       arquivados: filtros.arquivados.toString(),
     }).toString();
     try {
@@ -94,22 +74,19 @@ export default function PainelRH() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [empresaId, filtros]);
 
-  useEffect(() => {
-    if (!loadingSessao) carregarDados();
-  }, [filtros, loadingSessao]);
+  useEffect(() => { carregarDados(); }, [carregarDados]);
 
-  // ── Polling (5 segundos) ────────────────────────────────────────────────
+  // ── Polling 5s ─────────────────────────────────────────────────────────
   const iniciarPolling = useCallback((protocolo: string) => {
     if (intervalRef.current) { clearInterval(intervalRef.current); intervalRef.current = null; }
     const poll = async () => {
-      const atual = denunciaSelecionadaRef.current;
-      if (!atual) return;
+      if (!denunciaSelecionadaRef.current) return;
       try {
-        const msgs = await fetchMensagens(atual.protocolo);
+        const msgs = await fetchMensagens(denunciaSelecionadaRef.current.protocolo);
         setMensagens(msgs);
-      } catch (e) { console.error("Erro polling RH:", e); }
+      } catch (e) { console.error("Polling erro:", e); }
     };
     intervalRef.current = setInterval(poll, 5000);
   }, []);
@@ -123,12 +100,10 @@ export default function PainelRH() {
 
   useEffect(() => { chatEndRef.current?.scrollIntoView({ behavior: "smooth" }); }, [mensagens]);
 
-  // ── Logout seguro — apaga o cookie httpOnly via API ─────────────────────
+  // ── Logout — apaga cookie via API + localStorage ──────────────────────
   const handleSair = async () => {
-    await fetch("/api/rh/logout", { method: "POST", credentials: "include" });
-    localStorage.removeItem("rh_nome");
-    localStorage.removeItem("razao_social");
-    localStorage.removeItem("empresa_id");
+    try { await fetch("/api/rh/logout", { method: "POST", credentials: "include" }); } catch { /* ok */ }
+    localStorage.clear();
     window.location.href = "/rh/login";
   };
 
@@ -142,7 +117,8 @@ export default function PainelRH() {
     try {
       const msgs = await fetchMensagens(item.protocolo);
       setMensagens(msgs);
-    } catch (e) { setMensagens([]); } finally { setLoadingChat(false); }
+    } catch (e) { setMensagens([]); }
+    finally { setLoadingChat(false); }
     iniciarPolling(item.protocolo);
   };
 
@@ -162,7 +138,7 @@ export default function PainelRH() {
       if (!res.ok) throw new Error("Falha ao enviar");
       const msgs = await fetchMensagens(denunciaSelecionada.protocolo);
       setMensagens(msgs);
-    } catch (error) {
+    } catch {
       alert("Erro ao enviar mensagem. Tente novamente.");
       setNovaMensagem(textoParaEnviar);
     } finally { setEnviando(false); }
@@ -177,7 +153,6 @@ export default function PainelRH() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ denuncia_id: denunciaSelecionada.id, ...campos }),
       });
-      if (res.status === 401) { window.location.href = "/rh/login"; return; }
       if (res.ok) {
         setDenunciaSelecionada({ ...denunciaSelecionada, ...campos });
         if (fecharAposSalvar) setDenunciaSelecionada(null);
@@ -205,10 +180,7 @@ export default function PainelRH() {
     } finally { setSalvandoParecer(false); }
   };
 
-  if (loadingSessao)
-    return <div className="h-screen flex items-center justify-center bg-slate-50 font-black text-emerald-600 animate-pulse tracking-widest uppercase">Verificando acesso...</div>;
-
-  if (loading && dados.lista.length === 0)
+  if (loading)
     return <div className="h-screen flex items-center justify-center bg-slate-50 font-black text-emerald-600 animate-pulse tracking-widest uppercase">Carregando Painel...</div>;
 
   return (
@@ -224,10 +196,10 @@ export default function PainelRH() {
             <h1 className="font-black text-lg tracking-tighter text-slate-800 uppercase">Canal Seguro</h1>
           </div>
           <nav className="space-y-2">
-            <button onClick={() => setFiltros({ ...filtros, arquivados: false })} className={`w-full flex items-center gap-3 px-6 py-4 rounded-2xl font-black text-[10px] uppercase tracking-widest transition-all ${!filtros.arquivados ? "bg-emerald-600 text-white shadow-xl shadow-emerald-600/20" : "text-slate-400 hover:bg-slate-100 hover:text-slate-800"}`}>
+            <button onClick={() => setFiltros(f => ({ ...f, arquivados: false }))} className={`w-full flex items-center gap-3 px-6 py-4 rounded-2xl font-black text-[10px] uppercase tracking-widest transition-all ${!filtros.arquivados ? "bg-emerald-600 text-white shadow-xl shadow-emerald-600/20" : "text-slate-400 hover:bg-slate-100 hover:text-slate-800"}`}>
               <Inbox className="w-4 h-4" /> Denúncias
             </button>
-            <button onClick={() => setFiltros({ ...filtros, arquivados: true })} className={`w-full flex items-center gap-3 px-6 py-4 rounded-2xl font-black text-[10px] uppercase tracking-widest transition-all ${filtros.arquivados ? "bg-emerald-600 text-white shadow-xl shadow-emerald-600/20" : "text-slate-400 hover:bg-slate-100 hover:text-slate-800"}`}>
+            <button onClick={() => setFiltros(f => ({ ...f, arquivados: true }))} className={`w-full flex items-center gap-3 px-6 py-4 rounded-2xl font-black text-[10px] uppercase tracking-widest transition-all ${filtros.arquivados ? "bg-emerald-600 text-white shadow-xl shadow-emerald-600/20" : "text-slate-400 hover:bg-slate-100 hover:text-slate-800"}`}>
               <Archive className="w-4 h-4" /> Arquivados
             </button>
           </nav>
@@ -235,10 +207,8 @@ export default function PainelRH() {
         <div className="mt-auto p-6">
           <div className="bg-slate-100 p-4 rounded-2xl mb-4 border border-slate-200">
             <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Empresa Logada</p>
-            <p className="text-xs font-bold text-slate-700 uppercase truncate">
-              {sessao?.razao_social || localStorage.getItem("razao_social") || "—"}
-            </p>
-            <p className="text-[9px] text-slate-400 mt-1">{sessao?.nome}</p>
+            <p className="text-xs font-bold text-slate-700 uppercase truncate">{razaoSocial || "—"}</p>
+            {rhNome && <p className="text-[9px] text-slate-400 mt-1">{rhNome}</p>}
           </div>
           <button onClick={handleSair} className="w-full flex items-center gap-3 px-5 py-3 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all font-black text-[10px] uppercase tracking-widest">
             <LogOut className="w-4 h-4" /> Sair do Sistema
@@ -256,7 +226,7 @@ export default function PainelRH() {
             </div>
             <div className="relative group">
               <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-300 group-focus-within:text-emerald-500 transition-colors" />
-              <input type="text" placeholder="BUSCAR PROTOCOLO..." className="pl-11 pr-6 py-4 bg-white border border-slate-200 rounded-2xl text-xs focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 outline-none w-72 font-bold transition-all shadow-sm uppercase placeholder:text-slate-300" onChange={(e) => setFiltros({ ...filtros, busca: e.target.value })} />
+              <input type="text" placeholder="BUSCAR PROTOCOLO..." className="pl-11 pr-6 py-4 bg-white border border-slate-200 rounded-2xl text-xs focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 outline-none w-72 font-bold transition-all shadow-sm uppercase placeholder:text-slate-300" onChange={(e) => setFiltros(f => ({ ...f, busca: e.target.value }))} />
             </div>
           </div>
 
@@ -302,16 +272,16 @@ export default function PainelRH() {
                       )}
                     </td>
                     <td className="px-10 py-8">
-                      <p className="font-black text-slate-700 uppercase text-xs tracking-tight">{item.categoria.replace('_', ' ')}</p>
+                      <p className="font-black text-slate-700 uppercase text-xs tracking-tight">{item.categoria.replace("_", " ")}</p>
                       <p className="text-[10px] font-bold text-slate-400 mt-1">{new Date(item.criado_em).toLocaleDateString()}</p>
                     </td>
                     <td className="px-10 py-8 text-center">
-                      <span className={`px-4 py-1.5 rounded-lg text-[10px] font-black border uppercase tracking-widest ${item.prioridade === 'ALTA' ? 'bg-rose-100 text-rose-600 border-rose-200' : item.prioridade === 'BAIXA' ? 'bg-slate-100 text-slate-500 border-slate-200' : 'bg-emerald-100 text-emerald-600 border-emerald-200'}`}>
-                        {item.prioridade || 'MÉDIA'}
+                      <span className={`px-4 py-1.5 rounded-lg text-[10px] font-black border uppercase tracking-widest ${item.prioridade === "ALTA" ? "bg-rose-100 text-rose-600 border-rose-200" : item.prioridade === "BAIXA" ? "bg-slate-100 text-slate-500 border-slate-200" : "bg-emerald-100 text-emerald-600 border-emerald-200"}`}>
+                        {item.prioridade || "MÉDIA"}
                       </span>
                     </td>
                     <td className="px-10 py-8">
-                      <span className={`px-4 py-1.5 rounded-full text-[10px] font-black border uppercase tracking-widest ${item.status === 'EM_ANALISE' ? 'bg-blue-100 text-blue-700 border-blue-200' : item.status === 'RESOLVIDO' ? 'bg-emerald-100 text-emerald-700 border-emerald-200 shadow-sm' : 'bg-amber-100 text-amber-600 border-amber-200'}`}>
+                      <span className={`px-4 py-1.5 rounded-full text-[10px] font-black border uppercase tracking-widest ${item.status === "EM_ANALISE" ? "bg-blue-100 text-blue-700 border-blue-200" : item.status === "RESOLVIDO" ? "bg-emerald-100 text-emerald-700 border-emerald-200" : "bg-amber-100 text-amber-600 border-amber-200"}`}>
                         {item.status}
                       </span>
                     </td>
@@ -328,11 +298,12 @@ export default function PainelRH() {
         </div>
       </main>
 
-      {/* Modal */}
+      {/* ═══ MODAL ════════════════════════════════════════════════════════════ */}
       {denunciaSelecionada && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md z-50 flex justify-end animate-in fade-in duration-300">
           <div className="bg-slate-50 w-full max-w-2xl h-full shadow-2xl flex flex-col animate-in slide-in-from-right duration-500 border-l border-slate-200">
 
+            {/* Header */}
             <div className="bg-white p-6 sm:p-8 border-b border-slate-200 flex justify-between items-center shrink-0">
               <div className="flex items-center gap-4">
                 <div className="bg-emerald-600 p-4 rounded-xl shadow-lg shadow-emerald-600/20 text-white">
@@ -341,7 +312,7 @@ export default function PainelRH() {
                 <div>
                   <h3 className="text-3xl font-black text-slate-800 uppercase tracking-tighter">{denunciaSelecionada.protocolo}</h3>
                   <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-0.5">
-                    {denunciaSelecionada.categoria.replace('_', ' ')} &middot; {new Date(denunciaSelecionada.criado_em).toLocaleDateString()}
+                    {denunciaSelecionada.categoria.replace("_", " ")} · {new Date(denunciaSelecionada.criado_em).toLocaleDateString()}
                   </p>
                 </div>
               </div>
@@ -350,6 +321,7 @@ export default function PainelRH() {
               </button>
             </div>
 
+            {/* Controles */}
             <div className="bg-white px-8 py-5 border-b border-slate-200 shrink-0 grid grid-cols-2 gap-4 shadow-sm">
               <div className="space-y-1">
                 <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Status</label>
@@ -378,18 +350,16 @@ export default function PainelRH() {
             {/* Abas */}
             <div className="bg-white border-b border-slate-200 shrink-0 px-8 flex">
               <button onClick={() => setAbaModal("chat")} className={`flex items-center gap-2 px-6 py-4 font-black text-[10px] uppercase tracking-widest border-b-2 transition-all ${abaModal === "chat" ? "border-emerald-500 text-emerald-600" : "border-transparent text-slate-400 hover:text-slate-600"}`}>
-                <MessageSquare className="w-3.5 h-3.5" />
-                Chat
+                <MessageSquare className="w-3.5 h-3.5" /> Chat
                 {mensagens.length > 0 && <span className="bg-emerald-500 text-white text-[8px] font-black px-1.5 py-0.5 rounded-full">{mensagens.length}</span>}
               </button>
               <button onClick={() => setAbaModal("parecer")} className={`flex items-center gap-2 px-6 py-4 font-black text-[10px] uppercase tracking-widest border-b-2 transition-all ${abaModal === "parecer" ? "border-violet-500 text-violet-600" : "border-transparent text-slate-400 hover:text-slate-600"}`}>
-                <FileText className="w-3.5 h-3.5" />
-                Parecer Oficial
+                <FileText className="w-3.5 h-3.5" /> Parecer Oficial
                 {denunciaSelecionada.parecer_rh && <span className="bg-violet-500 text-white text-[8px] font-black px-1.5 py-0.5 rounded-full">✓</span>}
               </button>
             </div>
 
-            {/* Aba Chat */}
+            {/* ── Aba Chat ── */}
             {abaModal === "chat" && (
               <>
                 <div className="flex-1 p-8 overflow-y-auto space-y-6">
@@ -403,9 +373,9 @@ export default function PainelRH() {
                     <div className="text-center py-8"><p className="text-xs text-slate-400 font-bold uppercase tracking-widest">Nenhuma mensagem ainda.</p></div>
                   ) : (
                     mensagens.map((msg: any) => (
-                      <div key={msg.id} className={`flex flex-col ${msg.remetente === 'RH' ? 'items-end' : 'items-start'} w-full animate-in fade-in slide-in-from-bottom-2`}>
-                        <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1 mx-2">{msg.remetente === 'RH' ? 'Você (RH)' : 'Empregado'}</span>
-                        <div className={`p-6 rounded-3xl shadow-sm max-w-[85%] font-bold leading-relaxed text-sm ${msg.remetente === 'RH' ? 'bg-emerald-600 text-white rounded-tr-sm shadow-emerald-600/20' : 'bg-white border-2 border-slate-100 text-slate-700 rounded-tl-sm'}`}>{msg.texto}</div>
+                      <div key={msg.id} className={`flex flex-col ${msg.remetente === "RH" ? "items-end" : "items-start"} w-full`}>
+                        <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1 mx-2">{msg.remetente === "RH" ? "Você (RH)" : "Empregado"}</span>
+                        <div className={`p-6 rounded-3xl shadow-sm max-w-[85%] font-bold leading-relaxed text-sm ${msg.remetente === "RH" ? "bg-emerald-600 text-white rounded-tr-sm" : "bg-white border-2 border-slate-100 text-slate-700 rounded-tl-sm"}`}>{msg.texto}</div>
                       </div>
                     ))
                   )}
@@ -413,11 +383,11 @@ export default function PainelRH() {
                 </div>
                 <div className="bg-white p-6 border-t border-slate-200 shrink-0">
                   <p className="text-[9px] font-black text-emerald-600 uppercase tracking-widest mb-3 flex items-center gap-1">
-                    <span className="relative flex h-2 w-2"><span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span><span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span></span>
+                    <span className="relative flex h-2 w-2"><span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"/><span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"/></span>
                     Atualizando a cada 5s
                   </p>
                   <div className="flex items-end gap-4">
-                    <textarea value={novaMensagem} onChange={(e) => setNovaMensagem(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); enviarMensagemRH(); } }} placeholder="Envie uma mensagem (Enter para enviar)..." className="flex-1 bg-slate-50 border-2 border-slate-100 rounded-3xl p-5 outline-none focus:border-emerald-500 font-bold text-slate-700 resize-none h-24 placeholder:text-slate-300 transition-all disabled:opacity-60" disabled={enviando} />
+                    <textarea value={novaMensagem} onChange={(e) => setNovaMensagem(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); enviarMensagemRH(); } }} placeholder="Envie uma mensagem (Enter para enviar)..." className="flex-1 bg-slate-50 border-2 border-slate-100 rounded-3xl p-5 outline-none focus:border-emerald-500 font-bold text-slate-700 resize-none h-24 placeholder:text-slate-300 transition-all disabled:opacity-60" disabled={enviando} />
                     <button onClick={enviarMensagemRH} disabled={enviando || !novaMensagem.trim()} className="bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed text-white p-5 rounded-3xl shadow-xl transition-all active:scale-95 h-24 px-8 flex flex-col items-center justify-center gap-2 group">
                       {enviando ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send className="w-5 h-5 group-hover:translate-x-1 group-hover:-translate-y-1 transition-transform" />}
                       <span className="font-black uppercase tracking-widest text-[9px]">Enviar</span>
@@ -427,7 +397,7 @@ export default function PainelRH() {
               </>
             )}
 
-            {/* Aba Parecer */}
+            {/* ── Aba Parecer ── */}
             {abaModal === "parecer" && (
               <div className="flex-1 flex flex-col p-8 overflow-y-auto">
                 <div className="bg-violet-50 border border-violet-100 rounded-[2rem] p-6 mb-6 flex gap-4 shrink-0">
@@ -449,15 +419,16 @@ export default function PainelRH() {
                   <textarea value={textoParecer} onChange={(e) => { setTextoParecer(e.target.value); setParecerSalvo(false); }} placeholder="Descreva as providências tomadas, a conclusão da investigação e as medidas aplicadas..." className="flex-1 min-h-[180px] bg-white border-2 border-slate-100 rounded-[1.5rem] p-6 outline-none focus:border-violet-400 font-bold text-slate-700 resize-none placeholder:text-slate-300 transition-all text-sm leading-relaxed" />
                 </div>
                 <div className="mt-6 shrink-0">
-                  <button onClick={salvarParecer} disabled={salvandoParecer || !textoParecer.trim() || (textoParecer.trim() === (denunciaSelecionada.parecer_rh || ""))} className={`w-full flex items-center justify-center gap-3 font-black py-5 rounded-2xl shadow-xl transition-all uppercase text-[10px] tracking-widest disabled:cursor-not-allowed ${parecerSalvo ? "bg-emerald-500 text-white" : "bg-violet-600 hover:bg-violet-700 text-white disabled:opacity-50"}`}>
+                  <button onClick={salvarParecer} disabled={salvandoParecer || !textoParecer.trim() || textoParecer.trim() === (denunciaSelecionada.parecer_rh || "")} className={`w-full flex items-center justify-center gap-3 font-black py-5 rounded-2xl shadow-xl transition-all uppercase text-[10px] tracking-widest disabled:cursor-not-allowed ${parecerSalvo ? "bg-emerald-500 text-white" : "bg-violet-600 hover:bg-violet-700 text-white disabled:opacity-50"}`}>
                     {salvandoParecer ? <><Loader2 className="w-4 h-4 animate-spin" /> Salvando...</>
                       : parecerSalvo ? <><CheckCircle className="w-4 h-4" /> Parecer Salvo!</>
-                        : <><Save className="w-4 h-4" /> Salvar Parecer Oficial</>}
+                      : <><Save className="w-4 h-4" /> Salvar Parecer Oficial</>}
                   </button>
                   <p className="text-center text-[9px] text-slate-400 font-bold uppercase tracking-widest mt-3">O colaborador verá este parecer no histórico</p>
                 </div>
               </div>
             )}
+
           </div>
         </div>
       )}
