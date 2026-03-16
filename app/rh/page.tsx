@@ -10,13 +10,14 @@ import {
 
 async function fetchMensagens(protocolo: string) {
   const res = await fetch(`/api/chat?protocolo=${encodeURIComponent(protocolo)}`, {
-    method: 'GET',
-    cache: 'no-store',
+    method: "GET",
+    credentials: "include",
+    cache: "no-store",
     headers: {
-      'Cache-Control': 'no-cache, no-store, must-revalidate',
-      'Pragma': 'no-cache',
-      'Expires': '0',
-      'X-Timestamp': Date.now().toString(),
+      "Cache-Control": "no-cache, no-store, must-revalidate",
+      "Pragma": "no-cache",
+      "Expires": "0",
+      "X-Timestamp": Date.now().toString(),
     },
   });
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -25,16 +26,16 @@ async function fetchMensagens(protocolo: string) {
 }
 
 export default function PainelRH() {
+  const [sessao, setSessao] = useState<any>(null);
+  const [loadingSessao, setLoadingSessao] = useState(true);
+
   const [dados, setDados] = useState<any>({ stats: {}, lista: [] });
   const [loading, setLoading] = useState(true);
   const [filtros, setFiltros] = useState({ busca: "", categoria: "", status: "", arquivados: false });
   const [denunciaSelecionada, setDenunciaSelecionada] = useState<any>(null);
   const [salvando, setSalvando] = useState(false);
 
-  // Aba do modal: "chat" ou "parecer"
   const [abaModal, setAbaModal] = useState<"chat" | "parecer">("chat");
-
-  // Estado do parecer
   const [textoParecer, setTextoParecer] = useState("");
   const [salvandoParecer, setSalvandoParecer] = useState(false);
   const [parecerSalvo, setParecerSalvo] = useState(false);
@@ -52,15 +53,40 @@ export default function PainelRH() {
     denunciaSelecionadaRef.current = denunciaSelecionada;
   }, [denunciaSelecionada]);
 
+  // ── Hidrata sessão via cookie (sem depender de localStorage para segurança) ──
+  useEffect(() => {
+    const carregarSessao = async () => {
+      try {
+        const res = await fetch("/api/rh/me", { credentials: "include" });
+        if (!res.ok) {
+          window.location.href = "/rh/login";
+          return;
+        }
+        const data = await res.json();
+        setSessao(data);
+        // Sincroniza localStorage apenas para dados de exibição
+        if (data.razao_social) localStorage.setItem("razao_social", data.razao_social);
+        if (data.empresa_id) localStorage.setItem("empresa_id", data.empresa_id);
+      } catch {
+        window.location.href = "/rh/login";
+      } finally {
+        setLoadingSessao(false);
+      }
+    };
+    carregarSessao();
+  }, []);
+
   const carregarDados = async () => {
-    const empId = localStorage.getItem("empresa_id");
+    const empresaId = sessao?.empresa_id || localStorage.getItem("empresa_id");
+    if (!empresaId) return;
     const query = new URLSearchParams({
-      empresa_id: empId || "",
+      empresa_id: empresaId,
       ...filtros,
       arquivados: filtros.arquivados.toString(),
     }).toString();
     try {
-      const res = await fetch(`/api/rh/denuncias?${query}`);
+      const res = await fetch(`/api/rh/denuncias?${query}`, { credentials: "include" });
+      if (res.status === 401) { window.location.href = "/rh/login"; return; }
       const data = await res.json();
       setDados(data);
     } catch (error) {
@@ -70,9 +96,11 @@ export default function PainelRH() {
     }
   };
 
-  useEffect(() => { carregarDados(); }, [filtros]);
+  useEffect(() => {
+    if (!loadingSessao) carregarDados();
+  }, [filtros, loadingSessao]);
 
-  // ─── POLLING (5 segundos) ───────────────────────────────────────────────────
+  // ── Polling (5 segundos) ────────────────────────────────────────────────
   const iniciarPolling = useCallback((protocolo: string) => {
     if (intervalRef.current) { clearInterval(intervalRef.current); intervalRef.current = null; }
     const poll = async () => {
@@ -94,6 +122,15 @@ export default function PainelRH() {
   }, [denunciaSelecionada]);
 
   useEffect(() => { chatEndRef.current?.scrollIntoView({ behavior: "smooth" }); }, [mensagens]);
+
+  // ── Logout seguro — apaga o cookie httpOnly via API ─────────────────────
+  const handleSair = async () => {
+    await fetch("/api/rh/logout", { method: "POST", credentials: "include" });
+    localStorage.removeItem("rh_nome");
+    localStorage.removeItem("razao_social");
+    localStorage.removeItem("empresa_id");
+    window.location.href = "/rh/login";
+  };
 
   const abrirDenuncia = async (item: any) => {
     setDenunciaSelecionada(item);
@@ -118,6 +155,7 @@ export default function PainelRH() {
     try {
       const res = await fetch("/api/chat", {
         method: "POST",
+        credentials: "include",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ protocolo: denunciaSelecionada.protocolo, remetente: "RH", texto: textoParaEnviar }),
       });
@@ -135,9 +173,11 @@ export default function PainelRH() {
     try {
       const res = await fetch("/api/rh/denuncias", {
         method: "PATCH",
+        credentials: "include",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ denuncia_id: denunciaSelecionada.id, ...campos }),
       });
+      if (res.status === 401) { window.location.href = "/rh/login"; return; }
       if (res.ok) {
         setDenunciaSelecionada({ ...denunciaSelecionada, ...campos });
         if (fecharAposSalvar) setDenunciaSelecionada(null);
@@ -146,13 +186,13 @@ export default function PainelRH() {
     } finally { setSalvando(false); }
   };
 
-  // ─── SALVAR PARECER ──────────────────────────────────────────────────────────
   const salvarParecer = async () => {
     if (!textoParecer.trim() || !denunciaSelecionada) return;
     setSalvandoParecer(true);
     try {
       const res = await fetch("/api/rh/denuncias", {
         method: "PATCH",
+        credentials: "include",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ denuncia_id: denunciaSelecionada.id, parecer: textoParecer.trim() }),
       });
@@ -165,13 +205,16 @@ export default function PainelRH() {
     } finally { setSalvandoParecer(false); }
   };
 
+  if (loadingSessao)
+    return <div className="h-screen flex items-center justify-center bg-slate-50 font-black text-emerald-600 animate-pulse tracking-widest uppercase">Verificando acesso...</div>;
+
   if (loading && dados.lista.length === 0)
     return <div className="h-screen flex items-center justify-center bg-slate-50 font-black text-emerald-600 animate-pulse tracking-widest uppercase">Carregando Painel...</div>;
 
   return (
     <div className="min-h-screen bg-slate-50 flex font-sans selection:bg-emerald-100 text-slate-900">
 
-      {/* ── Sidebar ── */}
+      {/* Sidebar */}
       <aside className="w-72 bg-white flex flex-col border-r border-slate-200 sticky top-0 h-screen z-20">
         <div className="p-8">
           <div className="flex items-center gap-3 mb-10">
@@ -193,16 +236,17 @@ export default function PainelRH() {
           <div className="bg-slate-100 p-4 rounded-2xl mb-4 border border-slate-200">
             <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Empresa Logada</p>
             <p className="text-xs font-bold text-slate-700 uppercase truncate">
-              {typeof window !== 'undefined' ? localStorage.getItem("razao_social") || "Carregando..." : ""}
+              {sessao?.razao_social || localStorage.getItem("razao_social") || "—"}
             </p>
+            <p className="text-[9px] text-slate-400 mt-1">{sessao?.nome}</p>
           </div>
-          <button onClick={() => { localStorage.clear(); window.location.href = "/rh/login"; }} className="w-full flex items-center gap-3 px-5 py-3 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all font-black text-[10px] uppercase tracking-widest">
+          <button onClick={handleSair} className="w-full flex items-center gap-3 px-5 py-3 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all font-black text-[10px] uppercase tracking-widest">
             <LogOut className="w-4 h-4" /> Sair do Sistema
           </button>
         </div>
       </aside>
 
-      {/* ── Main ── */}
+      {/* Main */}
       <main className="flex-1 p-10 overflow-y-auto">
         <div className="max-w-6xl mx-auto space-y-10">
           <div className="flex justify-between items-center">
@@ -284,12 +328,11 @@ export default function PainelRH() {
         </div>
       </main>
 
-      {/* ═══ MODAL ═══════════════════════════════════════════════════════════════ */}
+      {/* Modal */}
       {denunciaSelecionada && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md z-50 flex justify-end animate-in fade-in duration-300">
           <div className="bg-slate-50 w-full max-w-2xl h-full shadow-2xl flex flex-col animate-in slide-in-from-right duration-500 border-l border-slate-200">
 
-            {/* Header */}
             <div className="bg-white p-6 sm:p-8 border-b border-slate-200 flex justify-between items-center shrink-0">
               <div className="flex items-center gap-4">
                 <div className="bg-emerald-600 p-4 rounded-xl shadow-lg shadow-emerald-600/20 text-white">
@@ -307,7 +350,6 @@ export default function PainelRH() {
               </button>
             </div>
 
-            {/* Controles status/prioridade/arquivo */}
             <div className="bg-white px-8 py-5 border-b border-slate-200 shrink-0 grid grid-cols-2 gap-4 shadow-sm">
               <div className="space-y-1">
                 <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1">Status</label>
@@ -333,27 +375,21 @@ export default function PainelRH() {
               </div>
             </div>
 
-            {/* Abas: Chat / Parecer */}
+            {/* Abas */}
             <div className="bg-white border-b border-slate-200 shrink-0 px-8 flex">
-              <button
-                onClick={() => setAbaModal("chat")}
-                className={`flex items-center gap-2 px-6 py-4 font-black text-[10px] uppercase tracking-widest border-b-2 transition-all ${abaModal === "chat" ? "border-emerald-500 text-emerald-600" : "border-transparent text-slate-400 hover:text-slate-600"}`}
-              >
+              <button onClick={() => setAbaModal("chat")} className={`flex items-center gap-2 px-6 py-4 font-black text-[10px] uppercase tracking-widest border-b-2 transition-all ${abaModal === "chat" ? "border-emerald-500 text-emerald-600" : "border-transparent text-slate-400 hover:text-slate-600"}`}>
                 <MessageSquare className="w-3.5 h-3.5" />
                 Chat
                 {mensagens.length > 0 && <span className="bg-emerald-500 text-white text-[8px] font-black px-1.5 py-0.5 rounded-full">{mensagens.length}</span>}
               </button>
-              <button
-                onClick={() => setAbaModal("parecer")}
-                className={`flex items-center gap-2 px-6 py-4 font-black text-[10px] uppercase tracking-widest border-b-2 transition-all ${abaModal === "parecer" ? "border-violet-500 text-violet-600" : "border-transparent text-slate-400 hover:text-slate-600"}`}
-              >
+              <button onClick={() => setAbaModal("parecer")} className={`flex items-center gap-2 px-6 py-4 font-black text-[10px] uppercase tracking-widest border-b-2 transition-all ${abaModal === "parecer" ? "border-violet-500 text-violet-600" : "border-transparent text-slate-400 hover:text-slate-600"}`}>
                 <FileText className="w-3.5 h-3.5" />
                 Parecer Oficial
                 {denunciaSelecionada.parecer_rh && <span className="bg-violet-500 text-white text-[8px] font-black px-1.5 py-0.5 rounded-full">✓</span>}
               </button>
             </div>
 
-            {/* ── ABA CHAT ── */}
+            {/* Aba Chat */}
             {abaModal === "chat" && (
               <>
                 <div className="flex-1 p-8 overflow-y-auto space-y-6">
@@ -361,7 +397,6 @@ export default function PainelRH() {
                     <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1 ml-2">Relato Original (Anônimo)</span>
                     <div className="bg-white border-2 border-slate-100 p-6 rounded-3xl rounded-tl-sm shadow-sm text-slate-700 font-bold leading-relaxed max-w-[85%] text-sm">{denunciaSelecionada.descricao}</div>
                   </div>
-
                   {loadingChat ? (
                     <div className="flex justify-center pt-10"><div className="w-8 h-8 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin" /></div>
                   ) : mensagens.length === 0 ? (
@@ -376,18 +411,14 @@ export default function PainelRH() {
                   )}
                   <div ref={chatEndRef} />
                 </div>
-
                 <div className="bg-white p-6 border-t border-slate-200 shrink-0">
                   <p className="text-[9px] font-black text-emerald-600 uppercase tracking-widest mb-3 flex items-center gap-1">
-                    <span className="relative flex h-2 w-2">
-                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                      <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
-                    </span>
+                    <span className="relative flex h-2 w-2"><span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span><span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span></span>
                     Atualizando a cada 5s
                   </p>
                   <div className="flex items-end gap-4">
                     <textarea value={novaMensagem} onChange={(e) => setNovaMensagem(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); enviarMensagemRH(); } }} placeholder="Envie uma mensagem (Enter para enviar)..." className="flex-1 bg-slate-50 border-2 border-slate-100 rounded-3xl p-5 outline-none focus:border-emerald-500 font-bold text-slate-700 resize-none h-24 placeholder:text-slate-300 transition-all disabled:opacity-60" disabled={enviando} />
-                    <button onClick={enviarMensagemRH} disabled={enviando || !novaMensagem.trim()} className="bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed text-white p-5 rounded-3xl shadow-xl shadow-emerald-600/20 transition-all active:scale-95 h-24 px-8 flex flex-col items-center justify-center gap-2 group">
+                    <button onClick={enviarMensagemRH} disabled={enviando || !novaMensagem.trim()} className="bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed text-white p-5 rounded-3xl shadow-xl transition-all active:scale-95 h-24 px-8 flex flex-col items-center justify-center gap-2 group">
                       {enviando ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send className="w-5 h-5 group-hover:translate-x-1 group-hover:-translate-y-1 transition-transform" />}
                       <span className="font-black uppercase tracking-widest text-[9px]">Enviar</span>
                     </button>
@@ -396,60 +427,37 @@ export default function PainelRH() {
               </>
             )}
 
-            {/* ── ABA PARECER ── */}
+            {/* Aba Parecer */}
             {abaModal === "parecer" && (
               <div className="flex-1 flex flex-col p-8 overflow-y-auto">
-                {/* Explicação */}
                 <div className="bg-violet-50 border border-violet-100 rounded-[2rem] p-6 mb-6 flex gap-4 shrink-0">
-                  <div className="bg-violet-100 p-3 rounded-xl text-violet-600 shrink-0">
-                    <ClipboardCheck className="w-5 h-5" />
-                  </div>
+                  <div className="bg-violet-100 p-3 rounded-xl text-violet-600 shrink-0"><ClipboardCheck className="w-5 h-5" /></div>
                   <div>
                     <h4 className="font-black text-violet-800 text-sm uppercase tracking-tight mb-1">Parecer Oficial do RH</h4>
-                    <p className="text-xs text-violet-600 font-bold leading-relaxed">
-                      O parecer é o posicionamento formal da empresa sobre esta ocorrência. Ele ficará visível para o colaborador no histórico de relatos.
-                    </p>
+                    <p className="text-xs text-violet-600 font-bold leading-relaxed">O parecer ficará visível para o colaborador no histórico de relatos.</p>
                   </div>
                 </div>
-
-                {/* Relato de referência */}
                 <div className="mb-6 shrink-0">
                   <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-2 block">Relato do Colaborador</label>
                   <div className="bg-slate-100 border border-slate-200 p-5 rounded-2xl text-slate-600 font-bold text-sm leading-relaxed">{denunciaSelecionada.descricao}</div>
                 </div>
-
-                {/* Textarea do parecer */}
                 <div className="flex-1 flex flex-col min-h-0">
                   <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest ml-1 mb-2 block shrink-0">
                     Escreva o Parecer
                     {denunciaSelecionada.parecer_rh && <span className="ml-2 text-violet-500 normal-case tracking-normal">· último parecer carregado</span>}
                   </label>
-                  <textarea
-                    value={textoParecer}
-                    onChange={(e) => { setTextoParecer(e.target.value); setParecerSalvo(false); }}
-                    placeholder="Descreva as providências tomadas, a conclusão da investigação, as medidas aplicadas ou qualquer informação relevante sobre o encerramento deste caso..."
-                    className="flex-1 min-h-[180px] bg-white border-2 border-slate-100 rounded-[1.5rem] p-6 outline-none focus:border-violet-400 font-bold text-slate-700 resize-none placeholder:text-slate-300 transition-all text-sm leading-relaxed"
-                  />
+                  <textarea value={textoParecer} onChange={(e) => { setTextoParecer(e.target.value); setParecerSalvo(false); }} placeholder="Descreva as providências tomadas, a conclusão da investigação e as medidas aplicadas..." className="flex-1 min-h-[180px] bg-white border-2 border-slate-100 rounded-[1.5rem] p-6 outline-none focus:border-violet-400 font-bold text-slate-700 resize-none placeholder:text-slate-300 transition-all text-sm leading-relaxed" />
                 </div>
-
-                {/* Botão salvar */}
                 <div className="mt-6 shrink-0">
-                  <button
-                    onClick={salvarParecer}
-                    disabled={salvandoParecer || !textoParecer.trim() || (textoParecer.trim() === (denunciaSelecionada.parecer_rh || ""))}
-                    className={`w-full flex items-center justify-center gap-3 font-black py-5 rounded-2xl shadow-xl transition-all uppercase text-[10px] tracking-widest disabled:cursor-not-allowed ${parecerSalvo ? "bg-emerald-500 text-white shadow-emerald-500/20" : "bg-violet-600 hover:bg-violet-700 text-white shadow-violet-600/20 disabled:opacity-50"}`}
-                  >
+                  <button onClick={salvarParecer} disabled={salvandoParecer || !textoParecer.trim() || (textoParecer.trim() === (denunciaSelecionada.parecer_rh || ""))} className={`w-full flex items-center justify-center gap-3 font-black py-5 rounded-2xl shadow-xl transition-all uppercase text-[10px] tracking-widest disabled:cursor-not-allowed ${parecerSalvo ? "bg-emerald-500 text-white" : "bg-violet-600 hover:bg-violet-700 text-white disabled:opacity-50"}`}>
                     {salvandoParecer ? <><Loader2 className="w-4 h-4 animate-spin" /> Salvando...</>
-                      : parecerSalvo ? <><CheckCircle className="w-4 h-4" /> Parecer Salvo com Sucesso!</>
+                      : parecerSalvo ? <><CheckCircle className="w-4 h-4" /> Parecer Salvo!</>
                         : <><Save className="w-4 h-4" /> Salvar Parecer Oficial</>}
                   </button>
-                  <p className="text-center text-[9px] text-slate-400 font-bold uppercase tracking-widest mt-3">
-                    O colaborador verá este parecer no histórico de relatos
-                  </p>
+                  <p className="text-center text-[9px] text-slate-400 font-bold uppercase tracking-widest mt-3">O colaborador verá este parecer no histórico</p>
                 </div>
               </div>
             )}
-
           </div>
         </div>
       )}
