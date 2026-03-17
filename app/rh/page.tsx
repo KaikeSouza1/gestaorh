@@ -5,7 +5,8 @@ import {
   Shield, Search, AlertTriangle, CheckCircle,
   Clock, LogOut, MessageSquare, X,
   Archive, Inbox, Layers, UserSearch, Send, Loader2,
-  FileText, Save, ClipboardCheck, QrCode, Printer, LayoutTemplate
+  FileText, Save, ClipboardCheck, QrCode, Printer, LayoutTemplate,
+  Download, Building2
 } from "lucide-react";
 
 async function fetchMensagens(protocolo: string) {
@@ -29,6 +30,9 @@ export default function PainelRH() {
   const [empresaId]    = useState(() => typeof window !== "undefined" ? localStorage.getItem("empresa_id")   || "" : "");
   const [razaoSocial]  = useState(() => typeof window !== "undefined" ? localStorage.getItem("razao_social") || "" : "");
   const [rhNome]       = useState(() => typeof window !== "undefined" ? localStorage.getItem("rh_nome")      || "" : "");
+  
+  // CNPJ puxado automaticamente do cache/sessão
+  const [cnpjEmpresa, setCnpjEmpresa] = useState(() => typeof window !== "undefined" ? localStorage.getItem("empresa_cnpj") || "" : "");
 
   const [dados, setDados] = useState<any>({ stats: {}, lista: [] });
   const [loading, setLoading] = useState(true);
@@ -49,7 +53,6 @@ export default function PainelRH() {
 
   // ── ESTADOS PARA O GERADOR DE QR CODE ──
   const [modalQrAberto, setModalQrAberto] = useState(false);
-  const [cnpjQr, setCnpjQr] = useState("");
   const [templateQr, setTemplateQr] = useState<1 | 2 | 3>(1);
 
   const chatEndRef = useRef<HTMLDivElement>(null);
@@ -58,26 +61,9 @@ export default function PainelRH() {
 
   useEffect(() => { denunciaSelecionadaRef.current = denunciaSelecionada; }, [denunciaSelecionada]);
 
-  // Tenta puxar o CNPJ do localStorage se existir para poupar tempo
-  useEffect(() => {
-    if (typeof window !== "undefined") {
-      const savedCnpj = localStorage.getItem("empresa_cnpj");
-      if (savedCnpj) setCnpjQr(savedCnpj);
-    }
-  }, []);
-
-  const handleCnpjChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    let value = e.target.value.replace(/\D/g, ""); 
-    if (value.length > 14) value = value.slice(0, 14);
-    value = value.replace(/^(\d{2})(\d)/, "$1.$2");
-    value = value.replace(/^(\d{2})\.(\d{3})(\d)/, "$1.$2.$3");
-    value = value.replace(/\.(\d{3})(\d)/, ".$1/$2");
-    value = value.replace(/(\d{4})(\d)/, "$1-$2");
-    setCnpjQr(value);
-  };
-
+  // URL dinâmica baseada no CNPJ automático
   const urlParaQrCode = typeof window !== "undefined" 
-    ? `${window.location.origin}/?cnpj=${cnpjQr.replace(/\D/g, "")}` 
+    ? `${window.location.origin}/?cnpj=${cnpjEmpresa.replace(/\D/g, "")}` 
     : "";
   const imagemQrCode = `https://api.qrserver.com/v1/create-qr-code/?size=500x500&data=${encodeURIComponent(urlParaQrCode)}&margin=10`;
 
@@ -204,6 +190,17 @@ export default function PainelRH() {
     } finally { setSalvandoParecer(false); }
   };
 
+  const handleImprimir = () => {
+    window.print();
+  };
+
+  const handleSalvarPDF = () => {
+    alert("Dica: Na próxima tela que vai abrir, clique em 'Destino' ou 'Impressora' e selecione a opção 'Salvar como PDF'.");
+    setTimeout(() => {
+      window.print();
+    }, 500);
+  };
+
   if (loading)
     return <div className="h-screen flex items-center justify-center bg-slate-50 font-black text-emerald-600 animate-pulse tracking-widest uppercase">Carregando Painel...</div>;
 
@@ -239,8 +236,8 @@ export default function PainelRH() {
           <div className="mt-auto p-6">
             <div className="bg-slate-100 p-4 rounded-2xl mb-4 border border-slate-200">
               <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Empresa Logada</p>
-              <p className="text-xs font-bold text-slate-700 uppercase truncate">{razaoSocial || "—"}</p>
-              {rhNome && <p className="text-[9px] text-slate-400 mt-1">{rhNome}</p>}
+              <p className="text-xs font-bold text-slate-700 uppercase truncate" title={razaoSocial}>{razaoSocial || "—"}</p>
+              <p className="text-[9px] font-mono text-slate-500 mt-1">{cnpjEmpresa || "CNPJ não localizado"}</p>
             </div>
             <button onClick={handleSair} className="w-full flex items-center gap-3 px-5 py-3 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all font-black text-[10px] uppercase tracking-widest">
               <LogOut className="w-4 h-4" /> Sair do Sistema
@@ -331,6 +328,7 @@ export default function PainelRH() {
         </main>
 
         {/* ═══ MODAL DO CHAT / DENÚNCIA ═════════════════════════════════════════ */}
+        {/* ... (Todo o modal do chat original continua idêntico ao de antes, mantive intacto) ... */}
         {denunciaSelecionada && (
           <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md z-50 flex justify-end animate-in fade-in duration-300">
             <div className="bg-slate-50 w-full max-w-2xl h-full shadow-2xl flex flex-col animate-in slide-in-from-right duration-500 border-l border-slate-200">
@@ -463,13 +461,13 @@ export default function PainelRH() {
           </div>
         )}
 
-        {/* ═══ MODAL DO GERADOR DE QR CODE ═════════════════════════════════════ */}
+        {/* ═══ MODAL DO GERADOR DE QR CODE E IMPRESSÃO ═════════════════════════ */}
         {modalQrAberto && (
           <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in duration-300">
-            <div className="bg-white w-full max-w-4xl rounded-[3rem] shadow-2xl flex flex-col md:flex-row overflow-hidden border border-slate-100">
+            <div className="bg-white w-full max-w-5xl rounded-[3rem] shadow-2xl flex flex-col md:flex-row overflow-hidden border border-slate-100">
               
               {/* Lado Esquerdo: Controles */}
-              <div className="w-full md:w-1/2 p-10 flex flex-col border-r border-slate-100 bg-slate-50">
+              <div className="w-full md:w-[45%] p-10 flex flex-col border-r border-slate-100 bg-slate-50">
                 <div className="flex justify-between items-center mb-8">
                   <h3 className="text-2xl font-black text-slate-800 uppercase tracking-tighter flex items-center gap-3">
                     <QrCode className="w-6 h-6 text-emerald-600" />
@@ -481,56 +479,73 @@ export default function PainelRH() {
                 </div>
 
                 <div className="space-y-6 flex-1">
-                  <div className="space-y-2">
-                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">CNPJ da Empresa na URL</label>
-                    <input 
-                      type="text" 
-                      value={cnpjQr} 
-                      onChange={handleCnpjChange}
-                      placeholder="00.000.000/0000-00"
-                      className="w-full p-4 bg-white border-2 border-slate-200 rounded-2xl text-slate-700 font-bold outline-none focus:border-emerald-500 transition-all"
-                    />
-                    <p className="text-[10px] text-slate-400 font-medium ml-1">Para auto-preencher na tela do empregado.</p>
+                  
+                  {/* CARD COM OS DADOS PUXADOS AUTOMATICAMENTE */}
+                  <div className="bg-emerald-50 border border-emerald-100 p-5 rounded-[2rem] flex items-center gap-4">
+                    <div className="bg-white p-3 rounded-2xl text-emerald-600 shadow-sm border border-emerald-100/50">
+                      <Building2 className="w-6 h-6" />
+                    </div>
+                    <div>
+                      <p className="text-[9px] font-black text-emerald-600/70 uppercase tracking-widest mb-0.5">Empresa Vinculada</p>
+                      <p className="font-bold text-slate-800 text-sm uppercase leading-tight">{razaoSocial || "Empresa Logada"}</p>
+                      <p className="text-[10px] text-emerald-700 font-mono font-bold mt-1">CNPJ: {cnpjEmpresa || "—"}</p>
+                    </div>
                   </div>
 
                   <div className="space-y-3">
                     <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 block">Visual do Cartaz</label>
                     <div className="grid grid-cols-1 gap-2">
-                      <button onClick={() => setTemplateQr(1)} className={`p-4 text-left rounded-2xl border-2 transition-all font-black text-xs uppercase tracking-widest flex items-center gap-3 ${templateQr === 1 ? 'border-emerald-500 bg-emerald-50 text-emerald-700' : 'border-slate-200 bg-white text-slate-500 hover:border-emerald-200'}`}>
+                      <button onClick={() => setTemplateQr(1)} className={`p-4 text-left rounded-2xl border-2 transition-all font-black text-xs uppercase tracking-widest flex items-center gap-3 ${templateQr === 1 ? 'border-emerald-500 bg-emerald-50 text-emerald-700 shadow-sm' : 'border-slate-200 bg-white text-slate-500 hover:border-emerald-200'}`}>
                         <LayoutTemplate className="w-5 h-5" /> Padrão / Clean (Recomendado)
                       </button>
-                      <button onClick={() => setTemplateQr(2)} className={`p-4 text-left rounded-2xl border-2 transition-all font-black text-xs uppercase tracking-widest flex items-center gap-3 ${templateQr === 2 ? 'border-emerald-500 bg-slate-900 text-white' : 'border-slate-200 bg-white text-slate-500 hover:border-slate-900'}`}>
+                      <button onClick={() => setTemplateQr(2)} className={`p-4 text-left rounded-2xl border-2 transition-all font-black text-xs uppercase tracking-widest flex items-center gap-3 ${templateQr === 2 ? 'border-emerald-500 bg-slate-900 text-white shadow-sm' : 'border-slate-200 bg-white text-slate-500 hover:border-slate-900'}`}>
                         <LayoutTemplate className="w-5 h-5" /> Corporativo Escuro
                       </button>
-                      <button onClick={() => setTemplateQr(3)} className={`p-4 text-left rounded-2xl border-2 transition-all font-black text-xs uppercase tracking-widest flex items-center gap-3 ${templateQr === 3 ? 'border-amber-500 bg-amber-100 text-amber-800' : 'border-slate-200 bg-white text-slate-500 hover:border-amber-300'}`}>
+                      <button onClick={() => setTemplateQr(3)} className={`p-4 text-left rounded-2xl border-2 transition-all font-black text-xs uppercase tracking-widest flex items-center gap-3 ${templateQr === 3 ? 'border-amber-500 bg-amber-100 text-amber-800 shadow-sm' : 'border-slate-200 bg-white text-slate-500 hover:border-amber-300'}`}>
                         <AlertTriangle className="w-5 h-5" /> Alerta de Conformidade
                       </button>
                     </div>
                   </div>
                 </div>
 
-                <button 
-                  onClick={() => window.print()}
-                  disabled={!cnpjQr || cnpjQr.length < 14}
-                  className="w-full mt-6 flex items-center justify-center gap-3 bg-emerald-600 hover:bg-emerald-700 text-white font-black py-5 rounded-2xl shadow-xl shadow-emerald-600/20 transition-all uppercase text-[10px] tracking-widest disabled:opacity-50"
-                >
-                  <Printer className="w-5 h-5" /> Imprimir Cartaz Agora
-                </button>
+                {/* BOTÕES DE AÇÃO: IMPRIMIR E PDF */}
+                <div className="mt-8 space-y-3">
+                  <button 
+                    onClick={handleImprimir}
+                    disabled={!cnpjEmpresa}
+                    className="w-full flex items-center justify-center gap-3 bg-emerald-600 hover:bg-emerald-700 text-white font-black py-4 rounded-2xl shadow-xl shadow-emerald-600/20 transition-all uppercase text-[10px] tracking-widest disabled:opacity-50"
+                  >
+                    <Printer className="w-5 h-5" /> Imprimir Documento
+                  </button>
+
+                  <button 
+                    onClick={handleSalvarPDF}
+                    disabled={!cnpjEmpresa}
+                    className="w-full flex items-center justify-center gap-3 bg-white border-2 border-slate-200 hover:border-slate-300 hover:bg-slate-50 text-slate-600 font-black py-4 rounded-2xl transition-all uppercase text-[10px] tracking-widest disabled:opacity-50"
+                  >
+                    <Download className="w-5 h-5" /> Salvar em PDF
+                  </button>
+                </div>
               </div>
 
               {/* Lado Direito: Preview */}
-              <div className="w-full md:w-1/2 bg-slate-200 p-8 flex flex-col items-center justify-center relative overflow-hidden">
-                <p className="absolute top-4 font-black text-[10px] text-slate-400 uppercase tracking-widest">Pré-visualização</p>
+              <div className="w-full md:w-[55%] bg-slate-200 p-8 flex flex-col items-center justify-center relative overflow-hidden">
+                <p className="absolute top-6 font-black text-[10px] text-slate-400 uppercase tracking-widest">Pré-visualização do Material</p>
                 
-                <div className="transform scale-[0.6] sm:scale-75 origin-center shadow-2xl transition-all duration-500">
+                <div className="transform scale-[0.55] sm:scale-75 origin-center shadow-2xl transition-all duration-500 rounded-sm">
                   {/* Miniatura do Cartaz (Usa a mesma lógica da impressão) */}
-                  <div className={`w-[210mm] h-[297mm] flex flex-col items-center justify-center p-16 ${
+                  <div className={`w-[210mm] h-[297mm] flex flex-col items-center justify-center p-16 relative ${
                     templateQr === 1 ? 'bg-white border-[16px] border-emerald-600' : 
                     templateQr === 2 ? 'bg-slate-900 border-[16px] border-emerald-500' : 
                     'bg-amber-400 border-[16px] border-slate-900'
                   }`}>
                     
-                    <Shield className={`w-32 h-32 mb-10 ${templateQr === 2 ? 'text-emerald-400' : templateQr === 3 ? 'text-slate-900' : 'text-emerald-600'}`} />
+                    {/* Nome da Empresa no topo do Cartaz para oficializar */}
+                    <div className={`absolute top-16 left-0 w-full text-center px-10 ${templateQr === 2 ? 'text-slate-400' : templateQr === 3 ? 'text-slate-800/60' : 'text-slate-400'}`}>
+                      <p className="text-xl font-black uppercase tracking-[0.2em]">{razaoSocial}</p>
+                    </div>
+
+                    <Shield className={`w-32 h-32 mb-10 mt-10 ${templateQr === 2 ? 'text-emerald-400' : templateQr === 3 ? 'text-slate-900' : 'text-emerald-600'}`} />
                     
                     <h1 className={`text-6xl font-black uppercase tracking-tighter text-center leading-tight mb-6 ${templateQr === 2 ? 'text-white' : 'text-slate-900'}`}>
                       {templateQr === 3 ? 'Atenção: Relate Violações' : 'Canal de Ética e Denúncia'}
@@ -541,7 +556,6 @@ export default function PainelRH() {
                     </p>
                     
                     <div className="bg-white p-8 rounded-[3rem] shadow-2xl mb-8 border-4 border-slate-100">
-                      {/* Imagem do QR Code puxada da API externa */}
                       <img src={imagemQrCode} alt="QR Code" className="w-80 h-80" />
                     </div>
                     
@@ -559,13 +573,17 @@ export default function PainelRH() {
 
       {/* ── ÁREA DE IMPRESSÃO (Oculta na tela, visível apenas na impressão) ── */}
       <div className="hidden print:flex w-screen h-screen m-0 p-0 items-center justify-center">
-        <div className={`w-full h-full flex flex-col items-center justify-center p-16 ${
+        <div className={`w-full h-full flex flex-col items-center justify-center p-16 relative ${
           templateQr === 1 ? 'bg-white border-[20px] border-emerald-600' : 
           templateQr === 2 ? 'bg-slate-900 border-[20px] border-emerald-500' : 
           'bg-amber-400 border-[20px] border-slate-900'
         }`}>
           
-          <Shield className={`w-40 h-40 mb-12 ${templateQr === 2 ? 'text-emerald-400' : templateQr === 3 ? 'text-slate-900' : 'text-emerald-600'}`} />
+          <div className={`absolute top-20 left-0 w-full text-center px-10 ${templateQr === 2 ? 'text-slate-400' : templateQr === 3 ? 'text-slate-800/60' : 'text-slate-400'}`}>
+            <p className="text-3xl font-black uppercase tracking-[0.3em]">{razaoSocial}</p>
+          </div>
+
+          <Shield className={`w-40 h-40 mb-12 mt-12 ${templateQr === 2 ? 'text-emerald-400' : templateQr === 3 ? 'text-slate-900' : 'text-emerald-600'}`} />
           
           <h1 className={`text-[5rem] font-black uppercase tracking-tighter text-center leading-none mb-8 ${templateQr === 2 ? 'text-white' : 'text-slate-900'}`}>
             {templateQr === 3 ? 'Atenção: Relate Violações' : 'Canal de Ética e Denúncia'}
