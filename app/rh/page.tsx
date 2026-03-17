@@ -31,7 +31,7 @@ export default function PainelRH() {
   const [razaoSocial]  = useState(() => typeof window !== "undefined" ? localStorage.getItem("razao_social") || "" : "");
   const [rhNome]       = useState(() => typeof window !== "undefined" ? localStorage.getItem("rh_nome")      || "" : "");
   
-  // CNPJ puxado automaticamente do cache/sessão
+  // CNPJ puxado automaticamente
   const [cnpjEmpresa, setCnpjEmpresa] = useState(() => typeof window !== "undefined" ? localStorage.getItem("empresa_cnpj") || "" : "");
 
   const [dados, setDados] = useState<any>({ stats: {}, lista: [] });
@@ -61,7 +61,7 @@ export default function PainelRH() {
 
   useEffect(() => { denunciaSelecionadaRef.current = denunciaSelecionada; }, [denunciaSelecionada]);
 
-  // URL dinâmica baseada no CNPJ automático
+  // URL dinâmica baseada no CNPJ
   const urlParaQrCode = typeof window !== "undefined" 
     ? `${window.location.origin}/?cnpj=${cnpjEmpresa.replace(/\D/g, "")}` 
     : "";
@@ -195,7 +195,7 @@ export default function PainelRH() {
   };
 
   const handleSalvarPDF = () => {
-    alert("Dica: Na próxima tela que vai abrir, clique em 'Destino' ou 'Impressora' e selecione a opção 'Salvar como PDF'.");
+    alert("Dica: Na próxima tela de impressão, clique em 'Destino' ou 'Impressora' e selecione 'Salvar como PDF'.");
     setTimeout(() => {
       window.print();
     }, 500);
@@ -328,7 +328,6 @@ export default function PainelRH() {
         </main>
 
         {/* ═══ MODAL DO CHAT / DENÚNCIA ═════════════════════════════════════════ */}
-        {/* ... (Todo o modal do chat original continua idêntico ao de antes, mantive intacto) ... */}
         {denunciaSelecionada && (
           <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md z-50 flex justify-end animate-in fade-in duration-300">
             <div className="bg-slate-50 w-full max-w-2xl h-full shadow-2xl flex flex-col animate-in slide-in-from-right duration-500 border-l border-slate-200">
@@ -461,19 +460,20 @@ export default function PainelRH() {
           </div>
         )}
 
-        {/* ═══ MODAL DO GERADOR DE QR CODE E IMPRESSÃO ═════════════════════════ */}
+        {/* ═══ MODAL DO GERADOR DE QR CODE E IMPRESSÃO (CORRIGIDO SCROLL) ════════════ */}
         {modalQrAberto && (
-          <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in duration-300">
-            <div className="bg-white w-full max-w-5xl rounded-[3rem] shadow-2xl flex flex-col md:flex-row overflow-hidden border border-slate-100">
+          <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-50 flex items-center justify-center p-4 sm:p-6 animate-in fade-in duration-300">
+            {/* AQUI FOI CORRIGIDO: Adicionado max-h-[90vh] e overflow-y-auto para não sumir o botão */}
+            <div className="bg-white w-full max-w-5xl max-h-[90vh] rounded-[2rem] md:rounded-[3rem] shadow-2xl flex flex-col md:flex-row overflow-y-auto border border-slate-100">
               
               {/* Lado Esquerdo: Controles */}
-              <div className="w-full md:w-[45%] p-10 flex flex-col border-r border-slate-100 bg-slate-50">
+              <div className="w-full md:w-[45%] p-8 md:p-10 flex flex-col border-r border-slate-100 bg-slate-50">
                 <div className="flex justify-between items-center mb-8">
-                  <h3 className="text-2xl font-black text-slate-800 uppercase tracking-tighter flex items-center gap-3">
-                    <QrCode className="w-6 h-6 text-emerald-600" />
+                  <h3 className="text-xl md:text-2xl font-black text-slate-800 uppercase tracking-tighter flex items-center gap-3">
+                    <QrCode className="w-6 h-6 text-emerald-600 shrink-0" />
                     Gerar Cartaz
                   </h3>
-                  <button onClick={() => setModalQrAberto(false)} className="p-2 bg-slate-200/50 hover:bg-rose-100 hover:text-rose-600 rounded-xl transition-all text-slate-500">
+                  <button onClick={() => setModalQrAberto(false)} className="p-2 bg-slate-200/50 hover:bg-rose-100 hover:text-rose-600 rounded-xl transition-all text-slate-500 shrink-0">
                     <X className="w-5 h-5" />
                   </button>
                 </div>
@@ -482,13 +482,13 @@ export default function PainelRH() {
                   
                   {/* CARD COM OS DADOS PUXADOS AUTOMATICAMENTE */}
                   <div className="bg-emerald-50 border border-emerald-100 p-5 rounded-[2rem] flex items-center gap-4">
-                    <div className="bg-white p-3 rounded-2xl text-emerald-600 shadow-sm border border-emerald-100/50">
+                    <div className="bg-white p-3 rounded-2xl text-emerald-600 shadow-sm border border-emerald-100/50 shrink-0">
                       <Building2 className="w-6 h-6" />
                     </div>
-                    <div>
+                    <div className="overflow-hidden">
                       <p className="text-[9px] font-black text-emerald-600/70 uppercase tracking-widest mb-0.5">Empresa Vinculada</p>
-                      <p className="font-bold text-slate-800 text-sm uppercase leading-tight">{razaoSocial || "Empresa Logada"}</p>
-                      <p className="text-[10px] text-emerald-700 font-mono font-bold mt-1">CNPJ: {cnpjEmpresa || "—"}</p>
+                      <p className="font-bold text-slate-800 text-sm uppercase leading-tight truncate">{razaoSocial || "Empresa Logada"}</p>
+                      <p className="text-[10px] text-emerald-700 font-mono font-bold mt-1 truncate">CNPJ: {cnpjEmpresa || "—"}</p>
                     </div>
                   </div>
 
@@ -496,20 +496,20 @@ export default function PainelRH() {
                     <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 block">Visual do Cartaz</label>
                     <div className="grid grid-cols-1 gap-2">
                       <button onClick={() => setTemplateQr(1)} className={`p-4 text-left rounded-2xl border-2 transition-all font-black text-xs uppercase tracking-widest flex items-center gap-3 ${templateQr === 1 ? 'border-emerald-500 bg-emerald-50 text-emerald-700 shadow-sm' : 'border-slate-200 bg-white text-slate-500 hover:border-emerald-200'}`}>
-                        <LayoutTemplate className="w-5 h-5" /> Padrão / Clean (Recomendado)
+                        <LayoutTemplate className="w-5 h-5 shrink-0" /> Padrão / Clean (Recomendado)
                       </button>
                       <button onClick={() => setTemplateQr(2)} className={`p-4 text-left rounded-2xl border-2 transition-all font-black text-xs uppercase tracking-widest flex items-center gap-3 ${templateQr === 2 ? 'border-emerald-500 bg-slate-900 text-white shadow-sm' : 'border-slate-200 bg-white text-slate-500 hover:border-slate-900'}`}>
-                        <LayoutTemplate className="w-5 h-5" /> Corporativo Escuro
+                        <LayoutTemplate className="w-5 h-5 shrink-0" /> Corporativo Escuro
                       </button>
                       <button onClick={() => setTemplateQr(3)} className={`p-4 text-left rounded-2xl border-2 transition-all font-black text-xs uppercase tracking-widest flex items-center gap-3 ${templateQr === 3 ? 'border-amber-500 bg-amber-100 text-amber-800 shadow-sm' : 'border-slate-200 bg-white text-slate-500 hover:border-amber-300'}`}>
-                        <AlertTriangle className="w-5 h-5" /> Alerta de Conformidade
+                        <AlertTriangle className="w-5 h-5 shrink-0" /> Alerta de Conformidade
                       </button>
                     </div>
                   </div>
                 </div>
 
                 {/* BOTÕES DE AÇÃO: IMPRIMIR E PDF */}
-                <div className="mt-8 space-y-3">
+                <div className="mt-8 space-y-3 pb-4 md:pb-0">
                   <button 
                     onClick={handleImprimir}
                     disabled={!cnpjEmpresa}
@@ -529,18 +529,17 @@ export default function PainelRH() {
               </div>
 
               {/* Lado Direito: Preview */}
-              <div className="w-full md:w-[55%] bg-slate-200 p-8 flex flex-col items-center justify-center relative overflow-hidden">
-                <p className="absolute top-6 font-black text-[10px] text-slate-400 uppercase tracking-widest">Pré-visualização do Material</p>
+              <div className="w-full md:w-[55%] bg-slate-200 p-8 flex flex-col items-center justify-center relative overflow-hidden min-h-[500px]">
+                <p className="absolute top-6 font-black text-[10px] text-slate-400 uppercase tracking-widest z-10">Pré-visualização do Material</p>
                 
-                <div className="transform scale-[0.55] sm:scale-75 origin-center shadow-2xl transition-all duration-500 rounded-sm">
-                  {/* Miniatura do Cartaz (Usa a mesma lógica da impressão) */}
+                <div className="transform scale-[0.45] sm:scale-[0.55] md:scale-75 origin-top md:origin-center mt-12 md:mt-0 shadow-2xl transition-all duration-500 rounded-sm">
+                  {/* Miniatura do Cartaz */}
                   <div className={`w-[210mm] h-[297mm] flex flex-col items-center justify-center p-16 relative ${
                     templateQr === 1 ? 'bg-white border-[16px] border-emerald-600' : 
                     templateQr === 2 ? 'bg-slate-900 border-[16px] border-emerald-500' : 
                     'bg-amber-400 border-[16px] border-slate-900'
                   }`}>
                     
-                    {/* Nome da Empresa no topo do Cartaz para oficializar */}
                     <div className={`absolute top-16 left-0 w-full text-center px-10 ${templateQr === 2 ? 'text-slate-400' : templateQr === 3 ? 'text-slate-800/60' : 'text-slate-400'}`}>
                       <p className="text-xl font-black uppercase tracking-[0.2em]">{razaoSocial}</p>
                     </div>

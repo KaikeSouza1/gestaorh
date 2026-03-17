@@ -33,13 +33,11 @@ export default function LoginRH() {
       }
 
       if (!response.ok) {
-        // Mostra o erro vindo do servidor, ou o status HTTP se não vier mensagem
         setErro(data.erro || `Erro ${response.status} — tente novamente.`);
         setLoading(false);
         return;
       }
 
-      // Sucesso — cookie httpOnly já foi setado pelo servidor
       if (data.isMaster) {
         localStorage.setItem("rh_nome", data.nome || "Master");
         window.location.href = "/admin";
@@ -47,11 +45,14 @@ export default function LoginRH() {
         localStorage.setItem("rh_nome", data.nome || "");
         localStorage.setItem("razao_social", data.razao_social || "");
         localStorage.setItem("empresa_id", data.empresa_id || "");
+        
+        // AQUI: Salva o CNPJ que agora vem da API!
+        localStorage.setItem("empresa_cnpj", data.cnpj || "");
+        
         window.location.href = "/rh";
       }
 
     } catch (err) {
-      // Erro de rede (offline, CORS, etc.)
       setErro("Falha na conexão com o servidor. Verifique sua internet.");
     } finally {
       setLoading(false);

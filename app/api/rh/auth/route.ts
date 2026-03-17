@@ -45,8 +45,9 @@ export async function POST(request: Request) {
     const cnpjLimpo = cnpj.replace(/\D/g, "");
     const senhaHash = crypto.createHash("sha256").update(senha).digest("hex");
 
+    // AQUI ESTAVA O PROBLEMA: Faltava pedir o CNPJ no SELECT
     const empresaRes = await pool.query(
-      "SELECT id, razao_social FROM empresa WHERE cnpj = $1",
+      "SELECT id, razao_social, cnpj FROM empresa WHERE cnpj = $1",
       [cnpjLimpo]
     );
 
@@ -82,6 +83,7 @@ export async function POST(request: Request) {
       isMaster: false,
     });
 
+    // AQUI ESTAVA O PROBLEMA: Retornando o CNPJ para o front-end salvar
     return NextResponse.json({
       sucesso: true,
       isMaster: false,
@@ -89,6 +91,7 @@ export async function POST(request: Request) {
       nome: rh.nome,
       empresa_id: empresa.id,
       razao_social: empresa.razao_social,
+      cnpj: empresa.cnpj,
     });
 
   } catch (error) {
