@@ -23,6 +23,14 @@ async function fetchMensagens(protocolo: string) {
   return Array.isArray(data) ? data : [];
 }
 
+const CATEGORIAS_OPCOES = [
+  { id: "assedio_politico", label: "Assédio Político / Eleitoral" },
+  { id: "assedio_moral", label: "Assédio Moral" },
+  { id: "assedio_sexual", label: "Assédio Sexual" },
+  { id: "discriminacao", label: "Discriminação ou Intimidação" },
+  { id: "violencia", label: "Violência no Trabalho" }
+];
+
 export default function PainelEmpregado() {
   const [abaAtiva, setAbaAtiva] = useState<"nova" | "historico">("nova");
   const [categoria, setCategoria] = useState("");
@@ -49,10 +57,17 @@ export default function PainelEmpregado() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (!categoria) {
+      alert("Por favor, selecione a Natureza da Ocorrência antes de enviar.");
+      return;
+    }
+
     setLoading(true);
     const empresa_id = localStorage.getItem("empresa_id");
     const empregado_id = localStorage.getItem("empregado_id");
     if (!empresa_id || !empregado_id) return handleSair();
+    
     try {
       const response = await fetch("/api/denuncia", {
         method: "POST",
@@ -234,16 +249,30 @@ export default function PainelEmpregado() {
                 <p className="text-xs text-emerald-900 font-bold leading-relaxed">Ambiente seguro e 100% anônimo para atendimento da <strong>NR-01</strong>.</p>
               </div>
 
-              <div className="space-y-2">
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-2">Natureza da Ocorrência</label>
-                <select value={categoria} onChange={(e) => setCategoria(e.target.value)} className="w-full p-5 border-2 border-slate-100 rounded-2xl focus:border-emerald-500 bg-slate-50 text-slate-700 font-black outline-none transition-all appearance-none cursor-pointer" required>
-                  <option value="" disabled>Selecione a classificação...</option>
-                  <option value="assedio_politico">Assédio Político / Eleitoral</option>
-                  <option value="assedio_moral">Assédio Moral</option>
-                  <option value="assedio_sexual">Assédio Sexual</option>
-                  <option value="discriminacao">Discriminação ou Intimidação</option>
-                  <option value="violencia">Violência no Trabalho</option>
-                </select>
+              {/* SELEÇÃO EM FORMATO DE CARDS / RADIOS GRANDES */}
+              <div className="space-y-4">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-2">Selecione a Natureza da Ocorrência</label>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {CATEGORIAS_OPCOES.map((cat) => (
+                    <button
+                      key={cat.id}
+                      type="button"
+                      onClick={() => setCategoria(cat.id)}
+                      className={`p-4 text-left rounded-2xl border-2 transition-all duration-200 w-full flex items-center gap-4 group focus:outline-none ${
+                        categoria === cat.id 
+                          ? "border-emerald-500 bg-emerald-50 text-emerald-800 shadow-sm" 
+                          : "border-slate-100 bg-slate-50 text-slate-600 hover:border-emerald-200 hover:bg-white"
+                      }`}
+                    >
+                      <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center shrink-0 transition-colors ${
+                        categoria === cat.id ? "border-emerald-500 bg-white" : "border-slate-300 bg-slate-100 group-hover:border-emerald-300"
+                      }`}>
+                        {categoria === cat.id && <div className="w-3 h-3 rounded-full bg-emerald-500 animate-in zoom-in-50" />}
+                      </div>
+                      <span className="font-black text-sm">{cat.label}</span>
+                    </button>
+                  ))}
+                </div>
               </div>
 
               <div className="space-y-2">

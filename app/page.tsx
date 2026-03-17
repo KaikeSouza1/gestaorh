@@ -1,11 +1,11 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { ShieldCheck, Lock, User, Building, ArrowRight, Loader2, KeyRound } from "lucide-react";
+import { ShieldCheck, Lock, User, Building, ArrowRight, Loader2, KeyRound, AlertTriangle } from "lucide-react";
 
 export default function TelaAcesso() {
   const [isLogin, setIsLogin] = useState(true);
-  const [cpf, setCpf] = useState("");
+  const [usuario, setUsuario] = useState("");
   const [senha, setSenha] = useState("");
   const [cnpj, setCnpj] = useState("");
   const [erro, setErro] = useState("");
@@ -20,19 +20,6 @@ export default function TelaAcesso() {
       setIsLogin(false);
     }
   }, []);
-
-  // --- MÁSCARAS AUTOMÁTICAS ---
-  const handleCpfChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    let value = e.target.value.replace(/\D/g, ""); // Remove tudo que não for número
-    if (value.length > 11) value = value.slice(0, 11); // Limita a 11 números
-    
-    // Aplica a máscara: 000.000.000-00
-    value = value.replace(/(\d{3})(\d)/, "$1.$2");
-    value = value.replace(/(\d{3})(\d)/, "$1.$2");
-    value = value.replace(/(\d{3})(\d{1,2})$/, "$1-$2");
-    
-    setCpf(value);
-  };
 
   const handleCnpjChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     let value = e.target.value.replace(/\D/g, ""); 
@@ -52,13 +39,13 @@ export default function TelaAcesso() {
     e.preventDefault();
     setErro("");
 
-    // 1. Limpa os dados para validação (pega só os números)
-    const cpfLimpo = cpf.replace(/\D/g, "");
+    // 1. Limpa os dados para validação
     const cnpjLimpo = cnpj.replace(/\D/g, "");
+    const usuarioFormatado = usuario.trim().toLowerCase();
 
     // 2. Regras de Validação Front-end
-    if (cpfLimpo.length !== 11) {
-      return setErro("CPF inválido. Digite os 11 números completos.");
+    if (usuarioFormatado.length < 4) {
+      return setErro("O usuário deve ter pelo menos 4 caracteres.");
     }
     if (!isLogin && cnpjLimpo.length !== 14) {
       return setErro("CNPJ inválido. Verifique o número da empresa.");
@@ -75,9 +62,9 @@ export default function TelaAcesso() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           acao: isLogin ? "login" : "registrar",
-          cpf: cpfLimpo, // Envia limpo para o banco
+          usuario: usuarioFormatado, 
           senha,
-          cnpj: isLogin ? undefined : cnpjLimpo, // Envia limpo para o banco
+          cnpj: isLogin ? undefined : cnpjLimpo,
         }),
       });
 
@@ -119,9 +106,21 @@ export default function TelaAcesso() {
         </div>
 
         <div className="p-10">
-          <h2 className="text-xl font-bold text-slate-800 mb-8 text-center uppercase tracking-tighter">
+          <h2 className="text-xl font-bold text-slate-800 mb-6 text-center uppercase tracking-tighter">
             {isLogin ? "Acesse sua conta" : "Cadastro de Empregado"}
           </h2>
+
+          {/* AVISO DE ANONIMATO E CUIDADO COM A SENHA NO CADASTRO */}
+          {!isLogin && (
+            <div className="mb-6 p-4 bg-amber-50 border border-amber-200 rounded-2xl animate-in fade-in">
+              <h3 className="text-amber-800 font-black text-[10px] uppercase tracking-widest mb-1.5 flex items-center gap-1.5">
+                <AlertTriangle className="w-4 h-4" /> 100% Anônimo e Sigiloso
+              </h3>
+              <p className="text-amber-700 text-xs font-bold leading-relaxed">
+                Você não precisa usar seu nome real ou CPF. <strong>Guarde muito bem seu Usuário e Senha!</strong> Como não pedimos seus dados, não há como recuperar o acesso depois.
+              </p>
+            </div>
+          )}
 
           {erro && (
             <div className="mb-6 p-4 bg-rose-50 border border-rose-100 text-rose-600 text-xs rounded-2xl text-center font-bold uppercase animate-in fade-in">
@@ -148,15 +147,15 @@ export default function TelaAcesso() {
             )}
 
             <div className="space-y-1">
-              <label className="text-xs font-black text-slate-400 ml-1 uppercase">CPF</label>
+              <label className="text-xs font-black text-slate-400 ml-1 uppercase">Identificação (Usuário)</label>
               <div className="relative">
                 <User className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
                 <input
                   type="text"
-                  value={cpf}
-                  onChange={handleCpfChange}
+                  value={usuario}
+                  onChange={(e) => setUsuario(e.target.value)}
                   className="w-full pl-12 pr-4 py-4 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 transition-all outline-none font-bold text-slate-700 placeholder:text-slate-300"
-                  placeholder="000.000.000-00"
+                  placeholder="Ex: joao123 ou anonimo99"
                   required
                 />
               </div>
