@@ -155,7 +155,7 @@ export default function TelaAcesso() {
                   value={usuario}
                   onChange={(e) => setUsuario(e.target.value)}
                   className="w-full pl-12 pr-4 py-4 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 transition-all outline-none font-bold text-slate-700 placeholder:text-slate-300"
-                  placeholder="Ex: joao123 ou anonimo99"
+                  
                   required
                 />
               </div>
@@ -170,7 +170,7 @@ export default function TelaAcesso() {
                   value={senha}
                   onChange={(e) => setSenha(e.target.value)}
                   className="w-full pl-12 pr-4 py-4 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 transition-all outline-none font-bold text-slate-700 placeholder:text-slate-300"
-                  placeholder="••••••••"
+
                   required
                 />
               </div>
