@@ -18,34 +18,41 @@ export default function LoginRH() {
       const response = await fetch("/api/rh/auth", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        // credentials: "include" garante que o cookie httpOnly seja recebido
         credentials: "include",
         body: JSON.stringify({ cnpj, senha }),
       });
 
-      const data = await response.json();
-
-      if (!response.ok) {
-        setErro(data.erro || "Falha na autenticação.");
+      // Tenta ler o JSON independente do status
+      let data: any = {};
+      try {
+        data = await response.json();
+      } catch {
+        setErro(`Erro ${response.status}: Resposta inválida do servidor.`);
+        setLoading(false);
         return;
       }
 
-      // ── Cookie httpOnly já foi setado pelo servidor ──
-      // Não salvamos mais nada sensível no localStorage
-      // Apenas dados de exibição não-sensíveis:
+      if (!response.ok) {
+        // Mostra o erro vindo do servidor, ou o status HTTP se não vier mensagem
+        setErro(data.erro || `Erro ${response.status} — tente novamente.`);
+        setLoading(false);
+        return;
+      }
+
+      // Sucesso — cookie httpOnly já foi setado pelo servidor
       if (data.isMaster) {
-        localStorage.setItem("rh_nome", data.nome);
+        localStorage.setItem("rh_nome", data.nome || "Master");
         window.location.href = "/admin";
       } else {
-        localStorage.setItem("rh_nome", data.nome);
-        localStorage.setItem("razao_social", data.razao_social);
-        // empresa_id ainda fica no localStorage para uso no frontend (não é segredo)
-        localStorage.setItem("empresa_id", data.empresa_id);
+        localStorage.setItem("rh_nome", data.nome || "");
+        localStorage.setItem("razao_social", data.razao_social || "");
+        localStorage.setItem("empresa_id", data.empresa_id || "");
         window.location.href = "/rh";
       }
 
-    } catch (error) {
-      setErro("Erro de conexão com o servidor.");
+    } catch (err) {
+      // Erro de rede (offline, CORS, etc.)
+      setErro("Falha na conexão com o servidor. Verifique sua internet.");
     } finally {
       setLoading(false);
     }
@@ -64,14 +71,14 @@ export default function LoginRH() {
         </div>
 
         <div className="bg-white rounded-[2.5rem] shadow-2xl shadow-slate-200/50 p-10 border border-slate-100 relative overflow-hidden">
-          <div className="absolute top-0 right-0 w-24 h-24 bg-emerald-50 rounded-full -mr-10 -mt-10 opacity-50"></div>
+          <div className="absolute top-0 right-0 w-24 h-24 bg-emerald-50 rounded-full -mr-10 -mt-10 opacity-50" />
 
           <h2 className="text-xl font-bold text-slate-800 mb-8 text-center uppercase tracking-tighter relative z-10">
             Acesse sua Conta
           </h2>
 
           {erro && (
-            <div className="mb-6 p-4 bg-rose-50 border border-rose-100 text-rose-600 text-[10px] rounded-2xl text-center font-black uppercase animate-bounce">
+            <div className="mb-6 p-4 bg-rose-50 border border-rose-200 text-rose-700 text-xs rounded-2xl text-center font-bold animate-in fade-in">
               {erro}
             </div>
           )}
@@ -88,7 +95,7 @@ export default function LoginRH() {
                   value={cnpj}
                   onChange={(e) => setCnpj(e.target.value)}
                   className="w-full pl-12 pr-4 py-4 bg-slate-50 border border-slate-200 rounded-2xl focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 outline-none transition-all font-bold text-slate-700 placeholder:text-slate-300"
-                  placeholder="DIGITE SEU CNPJ OU USUÁRIO"
+                  placeholder="CNPJ OU USUÁRIO MASTER"
                   required
                   autoComplete="username"
                 />
@@ -116,7 +123,7 @@ export default function LoginRH() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-black py-5 rounded-2xl shadow-xl shadow-emerald-600/30 transition-all active:scale-[0.98] uppercase tracking-widest mt-4 flex justify-center items-center gap-3 group"
+              className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-black py-5 rounded-2xl shadow-xl shadow-emerald-600/30 transition-all active:scale-[0.98] uppercase tracking-widest mt-4 flex justify-center items-center gap-3 group disabled:opacity-70"
             >
               {loading ? (
                 <Loader2 className="w-6 h-6 animate-spin text-white" />
