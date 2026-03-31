@@ -75,7 +75,9 @@ export default function PainelMaster() {
   };
 
   // --- NOVAS FUNÇÕES: IMPRIMIR E BAIXAR QR CODE ---
-  const imprimirQRCode = () => {
+  
+  // 1. Imprime um cartaz bem simples (Nome, QR Code e Frase)
+  const imprimirCartazSimplificado = () => {
     const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=500x500&data=${encodeURIComponent(`${window.location.origin}/?cnpj=${qrCodeData.cnpj}`)}`;
     const janela = window.open('', '', 'width=800,height=900');
     if (!janela) return alert("Habilite os popups para imprimir.");
@@ -83,23 +85,41 @@ export default function PainelMaster() {
     janela.document.write(`
       <html>
         <head>
-          <title>Placa QR Code - ${qrCodeData.razao_social}</title>
+          <title>Acesso - ${qrCodeData.razao_social}</title>
           <style>
-            body { font-family: 'Arial', sans-serif; text-align: center; padding: 40px; color: #0f172a; }
-            .container { border: 4px dashed #cbd5e1; padding: 40px; border-radius: 40px; max-width: 600px; margin: 0 auto; }
-            h1 { font-size: 32px; font-weight: 900; text-transform: uppercase; margin-bottom: 5px; }
-            h2 { font-size: 20px; color: #10b981; margin-bottom: 40px; text-transform: uppercase; letter-spacing: 2px; }
-            img { max-width: 350px; margin-bottom: 40px; border-radius: 20px; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1); }
-            p { font-size: 16px; font-weight: bold; color: #64748b; }
+            body { font-family: 'Arial', sans-serif; text-align: center; padding: 50px; color: #1e293b; }
+            h1 { font-size: 36px; font-weight: 900; text-transform: uppercase; margin-bottom: 40px; }
+            img { max-width: 400px; margin-bottom: 40px; }
+            p { font-size: 20px; font-weight: bold; color: #475569; }
           </style>
         </head>
         <body>
-          <div class="container">
-            <h1>${qrCodeData.razao_social}</h1>
-            <h2>Canal Seguro (NR-01)</h2>
-            <img src="${qrUrl}" onload="window.print();window.close()" />
-            <p>Aponte a câmera do seu celular para registrar<br>um relato de forma 100% anônima e segura.</p>
-          </div>
+          <h1>${qrCodeData.razao_social}</h1>
+          <img src="${qrUrl}" onload="window.print();window.close()" />
+          <p>Aponte a câmera para aceder ao sistema.</p>
+        </body>
+      </html>
+    `);
+    janela.document.close();
+  };
+
+  // 2. Imprime SOMENTE a imagem do QR Code
+  const imprimirSoQRCode = () => {
+    const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=500x500&data=${encodeURIComponent(`${window.location.origin}/?cnpj=${qrCodeData.cnpj}`)}`;
+    const janela = window.open('', '', 'width=600,height=600');
+    if (!janela) return alert("Habilite os popups para imprimir.");
+
+    janela.document.write(`
+      <html>
+        <head>
+          <title>QR Code</title>
+          <style>
+            body { margin: 0; display: flex; justify-content: center; align-items: center; height: 100vh; }
+            img { max-width: 100%; max-height: 100vh; }
+          </style>
+        </head>
+        <body>
+          <img src="${qrUrl}" onload="window.print();window.close()" />
         </body>
       </html>
     `);
@@ -119,11 +139,11 @@ export default function PainelMaster() {
       a.click();
       document.body.removeChild(a);
     } catch (err) {
-      alert("Erro ao baixar. Tente clicar com o botão direito na imagem e 'Salvar como'.");
+      alert("Erro ao baixar. Tente clicar com o botão direito na imagem e 'Guardar como'.");
     }
   };
 
-  if (loading && lista.empresas.length === 0) return <div className="h-screen flex items-center justify-center bg-white font-black text-emerald-600 tracking-widest uppercase">Acessando QG Master...</div>;
+  if (loading && lista.empresas.length === 0) return <div className="h-screen flex items-center justify-center bg-white font-black text-emerald-600 tracking-widest uppercase">Acedendo ao QG Master...</div>;
 
   return (
     <div className="min-h-screen bg-slate-50 flex font-sans selection:bg-emerald-100 text-slate-900">
@@ -155,7 +175,7 @@ export default function PainelMaster() {
           <div className="flex justify-between items-end">
             <div>
               <h2 className="text-5xl font-black text-slate-800 tracking-tighter uppercase">{aba === "empresas" ? "Empresas" : "Gestores"}</h2>
-              <p className="text-emerald-600 font-bold uppercase text-[10px] tracking-[0.3em] mt-2 italic">Controle Central SaaS</p>
+              <p className="text-emerald-600 font-bold uppercase text-[10px] tracking-[0.3em] mt-2 italic">Controlo Central SaaS</p>
             </div>
             <button 
               onClick={() => { setForm({}); setIsEditando(false); setModal(aba === "empresas" ? "empresa" : "usuario"); }}
@@ -255,7 +275,7 @@ export default function PainelMaster() {
                   </div>
                   <div className="space-y-2">
                     <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-2">CNPJ</label>
-                    <input type="text" value={form.cnpj || ""} placeholder="SOMENTE NÚMEROS" className="w-full p-5 bg-slate-50 border-2 border-slate-100 rounded-2xl outline-none focus:border-emerald-500 font-black text-emerald-600 tracking-widest" required onChange={e => setForm({...form, cnpj: e.target.value})} />
+                    <input type="text" value={form.cnpj || ""} placeholder="APENAS NÚMEROS" className="w-full p-5 bg-slate-50 border-2 border-slate-100 rounded-2xl outline-none focus:border-emerald-500 font-black text-emerald-600 tracking-widest" required onChange={e => setForm({...form, cnpj: e.target.value})} />
                   </div>
                 </>
               ) : (
@@ -273,7 +293,7 @@ export default function PainelMaster() {
                   </div>
                   <div className="space-y-2">
                     <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-2">E-mail</label>
-                    <input type="email" value={form.email || ""} placeholder="rh@empresa.com.br" className="w-full p-5 bg-slate-50 border-2 border-slate-100 rounded-2xl outline-none focus:border-emerald-500 font-black text-slate-900" required onChange={e => setForm({...form, email: e.target.value})} />
+                    <input type="email" value={form.email || ""} placeholder="rh@empresa.com.pt" className="w-full p-5 bg-slate-50 border-2 border-slate-100 rounded-2xl outline-none focus:border-emerald-500 font-black text-slate-900" required onChange={e => setForm({...form, email: e.target.value})} />
                   </div>
                   <div className="space-y-2">
                     <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-2">{isEditando ? "Nova Senha (deixe em branco para não alterar)" : "Senha Temporária"}</label>
@@ -284,7 +304,7 @@ export default function PainelMaster() {
             </div>
 
             <button type="submit" className="w-full bg-slate-900 hover:bg-emerald-600 text-white font-black py-6 rounded-2xl shadow-xl transition-all uppercase text-[10px] tracking-widest">
-              {isEditando ? "Salvar Alterações" : "Concluir Cadastro"}
+              {isEditando ? "Guardar Alterações" : "Concluir Registo"}
             </button>
           </form>
         </div>
@@ -311,16 +331,21 @@ export default function PainelMaster() {
               />
             </div>
 
-            {/* BOTÕES DE AÇÃO DO QR CODE22 */}
+            {/* BOTÕES DE AÇÃO DO QR CODE */}
             <div className="flex flex-col gap-3 pt-4">
+              
               <div className="flex gap-3">
-                <button onClick={imprimirQRCode} className="flex-1 py-4 bg-slate-900 hover:bg-slate-800 text-white rounded-2xl font-black uppercase text-[10px] tracking-widest flex items-center justify-center gap-2 transition-all shadow-lg shadow-slate-900/20">
-                  <Printer className="w-4 h-4" /> Imprimir
+                <button onClick={imprimirCartazSimplificado} className="flex-1 py-4 bg-slate-900 hover:bg-slate-800 text-white rounded-2xl font-black uppercase text-[10px] tracking-widest flex items-center justify-center gap-2 transition-all shadow-lg shadow-slate-900/20">
+                  <Printer className="w-4 h-4" /> Cartaz Simples
                 </button>
-                <button onClick={baixarQRCode} className="flex-1 py-4 bg-emerald-600 hover:bg-emerald-700 text-white rounded-2xl font-black uppercase text-[10px] tracking-widest flex items-center justify-center gap-2 transition-all shadow-lg shadow-emerald-600/20">
-                  <Download className="w-4 h-4" /> Baixar
+                <button onClick={imprimirSoQRCode} className="flex-1 py-4 bg-blue-600 hover:bg-blue-700 text-white rounded-2xl font-black uppercase text-[10px] tracking-widest flex items-center justify-center gap-2 transition-all shadow-lg shadow-blue-600/20">
+                  <Printer className="w-4 h-4" /> Só QR Code
                 </button>
               </div>
+
+              <button onClick={baixarQRCode} className="w-full py-4 bg-emerald-600 hover:bg-emerald-700 text-white rounded-2xl font-black uppercase text-[10px] tracking-widest flex items-center justify-center gap-2 transition-all shadow-lg shadow-emerald-600/20">
+                <Download className="w-4 h-4" /> Baixar Imagem PNG
+              </button>
               
               <button onClick={copiarLink} className={`w-full py-4 rounded-2xl font-black uppercase text-[10px] tracking-widest flex items-center justify-center gap-2 transition-all border-2 ${copiado ? 'border-emerald-500 text-emerald-600 bg-emerald-50' : 'border-slate-200 text-slate-500 hover:bg-slate-50'}`}>
                 {copiado ? <><CheckCircle className="w-4 h-4" /> Link Copiado!</> : <><Copy className="w-4 h-4" /> Copiar Link Direto</>}
